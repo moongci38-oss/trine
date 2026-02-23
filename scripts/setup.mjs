@@ -108,12 +108,18 @@ function checkPrerequisites() {
   const major = parseInt(nodeVersion.split('.')[0], 10);
   if (major < 18) {
     console.error(`  ERROR: Node.js 18+ required (current: ${nodeVersion})`);
+    console.error('');
+    console.error('  해결: https://nodejs.org 에서 Node.js 18+ 설치');
     process.exit(1);
   }
   console.log(`  Node.js v${nodeVersion} ... OK`);
 
   if (!existsSync(CLAUDE_DIR)) {
-    console.error('  ERROR: ~/.claude/ not found. Install Claude Code first.');
+    console.error('  ERROR: ~/.claude/ not found.');
+    console.error('');
+    console.error('  해결: Claude Code를 먼저 설치하세요.');
+    console.error('    npm install -g @anthropic-ai/claude-code');
+    console.error('    claude  # 최초 실행 시 ~/.claude/ 자동 생성');
     process.exit(1);
   }
   console.log(`  ~/.claude/ ... OK`);
@@ -235,6 +241,14 @@ async function configure(args) {
   for (const [key, val] of Object.entries(paths)) {
     if (val && val.startsWith('~')) {
       paths[key] = join(HOME, val.slice(1));
+    }
+  }
+
+  // Validate paths exist (warn, don't block)
+  for (const [key, val] of Object.entries(paths)) {
+    if (val && !existsSync(val)) {
+      console.log(`  ⚠ ${key}: 경로가 존재하지 않습니다 → ${val}`);
+      console.log(`    프로젝트 발견(Step 5)에서 해당 워크스페이스는 건너뜁니다.`);
     }
   }
 
@@ -391,7 +405,13 @@ function firstSync() {
       cwd: HOME,
     });
   } catch (err) {
-    console.error('  Sync failed. Run manually: node ~/.claude/scripts/trine-sync.mjs sync --include-recommended');
+    console.error('');
+    console.error('  ⚠ Sync 실패. 일반적인 원인:');
+    console.error('    - 등록된 프로젝트 경로가 존재하지 않음');
+    console.error('    - 파일 권한 문제 (관리자 권한 필요할 수 있음)');
+    console.error('');
+    console.error('  수동 실행: node ~/.claude/scripts/trine-sync.mjs sync --include-recommended');
+    console.error('  상태 확인: node ~/.claude/scripts/trine-sync.mjs status');
   }
 }
 
