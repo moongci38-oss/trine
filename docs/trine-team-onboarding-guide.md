@@ -121,7 +121,7 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 |------|----------|----------|---------|
 | `setup.mjs` | scripts (2개) | `~/.claude/scripts/` | clone 직후, 업데이트 시 |
 | `setup.mjs` | global-rules (3개) | `~/.claude/rules/` | clone 직후, 업데이트 시 |
-| `setup.mjs` | 의존성 (Agent Teams, tmux) | 설정 확인 | clone 직후, 업데이트 시 |
+| `setup.mjs` | 의존성 (Agent SDK, Agent Teams, tmux) | 설치/확인 | clone 직후, 업데이트 시 |
 | `setup.mjs` | manifest.example.json | `manifest.json` 생성 | 최초 1회 (인터랙티브) |
 | `trine-sync` | Core (rules, prompts, docs, templates, agents, skills, commands) | 프로젝트 내부 | 동기화 시 |
 | `trine-sync` | shared-docs | 프로젝트 `docs/shared/` | 동기화 시 |
@@ -139,7 +139,7 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 | Node.js | 18 이상 | `node --version` |
 | GitHub SSH | `moongci38-oss/trine` repo 접근 가능 | `ssh -T git@github.com` |
 
-> tmux는 setup.mjs가 자동으로 확인합니다.
+> Agent SDK, tmux는 setup.mjs가 자동으로 설치/확인합니다.
 
 ### 3.2 셋업 순서 (2단계)
 
@@ -182,6 +182,7 @@ node ~/.claude/trine/scripts/setup.mjs
   + plan-mode.md
 
 [4/7] Dependencies
+  Agent SDK ... OK (installed)
   Agent Teams ... OK (enabled)
   tmux (WSL) ... OK
 
@@ -217,10 +218,11 @@ node ~/.claude/trine/scripts/setup.mjs
 
 > **Mac 사용자**: 플랫폼을 자동 감지하여 "프로젝트 워크스페이스 경로" 한 줄만 질문합니다.
 
-### 3.3 자동 확인되는 의존성 (Step 4)
+### 3.3 자동 설치/확인되는 의존성 (Step 4)
 
 | 항목             | 동작                                                                                      |
 |------------------|-------------------------------------------------------------------------------------------|
+| **Agent SDK**    | `npm install -g @anthropic-ai/claude-agent-sdk` (미설치 시 자동 설치)                     |
 | **Agent Teams**  | `~/.claude/settings.json`에 환경변수 자동 추가 (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) |
 | **tmux**         | 존재 확인 + 미설치 시 설치 안내 (Mac: `brew install tmux`, Linux: `apt install tmux`)     |
 
@@ -272,7 +274,7 @@ node ~/.claude/scripts/trine-sync.mjs sync
 **`--update` 모드 동작:**
 - `scripts/` → `~/.claude/scripts/` 덮어쓰기
 - `global-rules/` → `~/.claude/rules/` 덮어쓰기
-- 의존성 확인 (Agent Teams, tmux)
+- 의존성 설치/확인 (Agent SDK, Agent Teams, tmux)
 - `manifest.json` → 건드리지 않음 (개인 설정 보존)
 
 ---
@@ -557,7 +559,7 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 | 변경 | 설명 |
 |------|------|
 | 원커맨드 셋업 | setup.mjs 7단계 자동 실행 (clone + setup.mjs 2단계로 온보딩 완료) |
-| 의존성 자동 확인 | Agent Teams 활성화, tmux 확인 |
+| 의존성 자동 설치 | Agent SDK, Agent Teams 활성화, tmux 확인 |
 | 크로스 플랫폼 | Windows + Mac 양쪽 지원 (플랫폼 자동 감지) |
 | 프로젝트 자동 발견 | 워크스페이스 스캔 → `.claude/` 프로젝트 자동 등록 |
 | 글로벌 스킬 3개 추가 | hook-creator, slash-command-creator, subagent-creator |
@@ -608,6 +610,7 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 | `Node.js 18+ required (current: 16.x)` | Node.js 버전 낮음 | [nodejs.org](https://nodejs.org)에서 LTS 설치. Mac: `brew install node` |
 | `~/.claude/ not found` | Claude Code 미설치 | `npm install -g @anthropic-ai/claude-code && claude` |
 | `manifest.example.json not found` | repo 불완전 clone | `cd ~/.claude/trine && git pull` 후 재시도 |
+| `Agent SDK 설치 실패` | npm 권한 부족 | Mac/Linux: `sudo npm install -g`, Windows: 관리자 터미널 |
 | 워크스페이스 경로 존재하지 않음 | 잘못된 경로 입력 | `rm ~/.claude/trine/manifest.json` 후 재실행 |
 
 ### 11.2 trine-sync 에러
