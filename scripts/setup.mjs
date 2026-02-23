@@ -2,29 +2,35 @@
 /**
  * setup.mjs — Trine Bootstrap Script
  *
- * Initializes a team member's machine for Trine usage.
- * Run after cloning the trine repo:
+ * One-command setup for team members. After cloning the trine repo:
  *
- *   node ~/.claude/trine/scripts/setup.mjs [--update]
+ *   node ~/.claude/trine/scripts/setup.mjs
  *
- * Actions:
- *   1. Verify prerequisites (Node.js, ~/.claude/ exists)
- *   2. Copy scripts/ → ~/.claude/scripts/
- *   3. Copy global-rules/ → ~/.claude/rules/
- *   4. Create manifest.json interactively (ask workspace paths)
+ * This single command does everything:
+ *   1. Verify prerequisites (Node.js 18+, ~/.claude/ exists)
+ *   2. Install scripts → ~/.claude/scripts/
+ *   3. Install global rules → ~/.claude/rules/
+ *   4. Detect platform & configure workspaces → manifest.json
+ *   5. Auto-discover Claude Code projects in workspaces
+ *   6. Run first sync (trine-sync --include-recommended)
  *
  * Flags:
- *   --update    Only update scripts + global-rules (skip manifest)
+ *   --update          Only update scripts + global-rules (skip manifest/discover/sync)
+ *   --skip-discover   Skip project auto-discovery (steps 5-6)
  *
  * Non-interactive (CI/script):
- *   node setup.mjs --wsl-path "Z:/path" --win-path "E:/path" --business-path "Z:/biz"
+ *   node setup.mjs --workspace ~/projects --business ~/biz            # Mac/Linux
+ *   node setup.mjs --wsl-path "Z:/path" --win-path "E:/path"          # Windows
+ *
+ * Cross-platform: Windows (win32), macOS (darwin), Linux
  */
 
-import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { homedir } from 'node:os';
+import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, renameSync } from 'node:fs';
+import { join, dirname, basename, resolve } from 'node:path';
+import { homedir, platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+import { execFileSync } from 'node:child_process';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -42,6 +48,9 @@ const SRC_SCRIPTS = join(TRINE_ROOT, 'scripts');
 const SRC_GLOBAL_RULES = join(TRINE_ROOT, 'global-rules');
 const MANIFEST_EXAMPLE = join(TRINE_ROOT, 'manifest.example.json');
 const MANIFEST_PATH = join(TRINE_ROOT, 'manifest.json');
+const TRINE_SYNC_PATH = join(SCRIPTS_DIR, 'trine-sync.mjs');
+
+const PLATFORM = platform();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,12 +80,27 @@ async function ask(rl, question) {
   });
 }
 
+function normalPath(p) {
+  return p.replace(/\\/g, '/');
+}
+
+function toKebabCase(name) {
+  return name
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .replace(/[_\s]+/g, '-')
+    .toLowerCase();
+}
+
+function isDirectory(p) {
+  try { return statSync(p).isDirectory(); } catch { return false; }
+}
+
 // ---------------------------------------------------------------------------
-// Steps
+// [1/6] Prerequisites
 // ---------------------------------------------------------------------------
 
 function checkPrerequisites() {
-  console.log('\n[1/4] Prerequisites');
+  console.log('\n[1/6] Prerequisites');
 
   const nodeVersion = process.versions.node;
   const major = parseInt(nodeVersion.split('.')[0], 10);
@@ -91,10 +115,17 @@ function checkPrerequisites() {
     process.exit(1);
   }
   console.log(`  ~/.claude/ ... OK`);
+
+  const platformLabel = PLATFORM === 'darwin' ? 'macOS' : PLATFORM === 'win32' ? 'Windows' : 'Linux';
+  console.log(`  Platform: ${platformLabel}`);
 }
 
-function copyScripts() {
-  console.log('\n[2/4] Scripts → ~/.claude/scripts/');
+// ---------------------------------------------------------------------------
+// [2/6] Install Scripts
+// ---------------------------------------------------------------------------
+
+function installScripts() {
+  console.log('\n[2/6] Install Scripts → ~/.claude/scripts/');
   ensureDir(SCRIPTS_DIR);
 
   const scriptFiles = ['trine-sync.mjs', 'session-state.mjs'];
@@ -106,8 +137,12 @@ function copyScripts() {
   }
 }
 
-function copyGlobalRules(forceOverwrite = false) {
-  console.log('\n[3/4] Global Rules → ~/.claude/rules/');
+// ---------------------------------------------------------------------------
+// [3/6] Install Global Rules
+// ---------------------------------------------------------------------------
+
+function installGlobalRules(forceOverwrite = false) {
+  console.log('\n[3/6] Install Rules → ~/.claude/rules/');
   ensureDir(RULES_DIR);
 
   if (!existsSync(SRC_GLOBAL_RULES)) {
@@ -129,8 +164,12 @@ function copyGlobalRules(forceOverwrite = false) {
   }
 }
 
-async function setupManifest(args) {
-  console.log('\n[4/4] Manifest');
+// ---------------------------------------------------------------------------
+// [4/6] Configure — Platform-aware manifest setup
+// ---------------------------------------------------------------------------
+
+async function configure(args) {
+  console.log('\n[4/6] Configure');
 
   if (existsSync(MANIFEST_PATH)) {
     console.log('  manifest.json already exists (keeping current)');
@@ -144,37 +183,64 @@ async function setupManifest(args) {
 
   let content = readFileSync(MANIFEST_EXAMPLE, 'utf8');
 
-  // Try CLI args first (non-interactive mode)
-  let wslPath = getArg(args, '--wsl-path');
-  let winPath = getArg(args, '--win-path');
-  let bizPath = getArg(args, '--business-path');
+  // Collect paths — CLI args first, then interactive
+  const paths = {};
 
-  // Interactive mode if any path not provided
-  if (!wslPath || !winPath) {
+  if (PLATFORM === 'win32') {
+    // Windows: WSL + Windows workspaces
+    paths.wsl = getArg(args, '--wsl-path');
+    paths.windows = getArg(args, '--win-path');
+    paths.business = getArg(args, '--business-path') || getArg(args, '--business');
+  } else {
+    // Mac / Linux: single workspace
+    paths.mac = getArg(args, '--workspace');
+    paths.business = getArg(args, '--business-path') || getArg(args, '--business');
+  }
+
+  // Interactive mode if needed
+  const needsInteractive = PLATFORM === 'win32'
+    ? (!paths.wsl && !paths.windows)
+    : !paths.mac;
+
+  if (needsInteractive) {
     console.log('');
-    console.log('  워크스페이스 경로를 입력하세요.');
-    console.log('  사용하지 않는 워크스페이스는 Enter로 건너뛰세요.');
+    console.log('  워크스페이스 경로를 입력하세요. (Enter = 건너뛰기)');
     console.log('');
 
     const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-    if (!wslPath) {
-      wslPath = await ask(rl, '  WSL 워크스페이스 경로 (예: Z:/home/user/workspace): ');
+    if (PLATFORM === 'win32') {
+      if (!paths.wsl) {
+        paths.wsl = await ask(rl, '  WSL 워크스페이스 경로 (예: Z:/home/user/workspace): ');
+      }
+      if (!paths.windows) {
+        paths.windows = await ask(rl, '  Windows 워크스페이스 경로 (예: E:/workspace): ');
+      }
+    } else {
+      if (!paths.mac) {
+        paths.mac = await ask(rl, '  프로젝트 워크스페이스 경로 (예: ~/projects): ');
+      }
     }
-    if (!winPath) {
-      winPath = await ask(rl, '  Windows 워크스페이스 경로 (예: E:/workspace): ');
-    }
-    if (!bizPath) {
-      bizPath = await ask(rl, '  Business 워크스페이스 경로 (Enter=건너뛰기): ');
+
+    if (!paths.business) {
+      paths.business = await ask(rl, '  Business 워크스페이스 경로 (선택, Enter=건너뛰기): ');
     }
 
     rl.close();
   }
 
-  // Replace placeholders with actual paths
-  if (wslPath) content = content.replace('{WSL_WORKSPACE}', wslPath);
-  if (winPath) content = content.replace('{WIN_WORKSPACE}', winPath);
-  if (bizPath) content = content.replace('{BUSINESS_PATH}', bizPath);
+  // Resolve ~ to home directory
+  for (const [key, val] of Object.entries(paths)) {
+    if (val && val.startsWith('~')) {
+      paths[key] = join(HOME, val.slice(1));
+    }
+  }
+
+  // Replace placeholders
+  if (paths.wsl) content = content.replace('{WSL_WORKSPACE}', paths.wsl);
+  if (paths.windows) content = content.replace('{WIN_WORKSPACE}', paths.windows);
+  if (paths.mac) content = content.replace('{MAC_WORKSPACE}', paths.mac);
+  if (paths.business) content = content.replace('{BUSINESS_PATH}', paths.business);
 
   // Remove unused workspaces (placeholder still present)
   const manifest = JSON.parse(content);
@@ -186,16 +252,161 @@ async function setupManifest(args) {
   }
   for (const key of toRemove) {
     delete manifest.workspaces[key];
-    console.log(`  - ${key} workspace removed (경로 미입력)`);
   }
 
-  writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  saveManifest(manifest);
   console.log('  + manifest.json created');
 
   const wsKeys = Object.keys(manifest.workspaces);
   if (wsKeys.length > 0) {
     console.log(`  Workspaces: ${wsKeys.join(', ')}`);
   }
+
+  return manifest;
+}
+
+// ---------------------------------------------------------------------------
+// [5/6] Discover & Register Projects
+// ---------------------------------------------------------------------------
+
+async function discoverAndRegister() {
+  console.log('\n[5/6] Discover & Register');
+
+  const manifest = loadManifest();
+  const workspaces = manifest.workspaces || {};
+
+  if (Object.keys(workspaces).length === 0) {
+    console.log('  (no workspaces configured, skipping)');
+    return;
+  }
+
+  // Scan each workspace for Claude Code projects
+  const discovered = [];
+
+  for (const [wsKey, wsConfig] of Object.entries(workspaces)) {
+    const wsPath = wsConfig.basePath;
+    if (!existsSync(wsPath) || !isDirectory(wsPath)) {
+      console.log(`  - ${wsKey}: path not found (${wsPath})`);
+      continue;
+    }
+
+    let entries;
+    try { entries = readdirSync(wsPath); } catch { continue; }
+
+    for (const entry of entries) {
+      const fullPath = join(wsPath, entry);
+      if (!isDirectory(fullPath)) continue;
+
+      // Check if this directory has .claude/ (Claude Code project)
+      const claudeDir = join(fullPath, '.claude');
+      if (!existsSync(claudeDir) || !isDirectory(claudeDir)) continue;
+
+      // Derive project name
+      const name = toKebabCase(basename(fullPath));
+
+      // Check if already registered
+      const normalFull = normalPath(resolve(fullPath));
+      const alreadyByName = manifest.targets[name];
+      const alreadyByPath = Object.entries(manifest.targets)
+        .find(([, cfg]) => normalPath(resolve(cfg.path)) === normalFull);
+
+      if (alreadyByName || alreadyByPath) {
+        const existingName = alreadyByPath ? alreadyByPath[0] : name;
+        skipFile(existingName, 'already registered');
+        continue;
+      }
+
+      // Determine scope
+      const isBusiness = name.includes('business');
+      const scope = isBusiness ? 'shared-only' : 'all';
+
+      discovered.push({ name, path: normalFull, scope, workspace: wsKey });
+    }
+  }
+
+  if (discovered.length === 0) {
+    console.log('  (no new projects found)');
+    return;
+  }
+
+  // Show discovered projects
+  console.log('');
+  console.log('  발견된 프로젝트:');
+  for (let i = 0; i < discovered.length; i++) {
+    const p = discovered[i];
+    console.log(`    ${i + 1}. ${p.name}  → ${p.path}  [${p.scope}]`);
+  }
+  console.log('');
+
+  // Ask confirmation
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await ask(rl, '  등록하시겠습니까? (Y/n): ');
+  rl.close();
+
+  if (answer.toLowerCase() === 'n') {
+    console.log('  건너뜀. 수동 등록: node ~/.claude/scripts/trine-sync.mjs init <path> --name <name>');
+    return;
+  }
+
+  // Register all discovered projects
+  for (const p of discovered) {
+    const target = { path: p.path, scope: p.scope };
+    if (p.workspace) target.workspace = p.workspace;
+    manifest.targets[p.name] = target;
+    console.log(`  + ${p.name} registered`);
+  }
+
+  saveManifest(manifest);
+}
+
+// ---------------------------------------------------------------------------
+// [6/6] First Sync
+// ---------------------------------------------------------------------------
+
+function firstSync() {
+  console.log('\n[6/6] First Sync');
+
+  if (!existsSync(TRINE_SYNC_PATH)) {
+    console.error('  ERROR: trine-sync.mjs not found. Scripts installation may have failed.');
+    return;
+  }
+
+  const manifest = loadManifest();
+  if (!manifest.targets || Object.keys(manifest.targets).length === 0) {
+    console.log('  (no projects registered, skipping sync)');
+    return;
+  }
+
+  console.log('  Running trine-sync sync --include-recommended ...');
+  console.log('');
+
+  try {
+    execFileSync(process.execPath, [TRINE_SYNC_PATH, 'sync', '--include-recommended'], {
+      stdio: 'inherit',
+      cwd: HOME,
+    });
+  } catch (err) {
+    console.error('  Sync failed. Run manually: node ~/.claude/scripts/trine-sync.mjs sync --include-recommended');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Manifest helpers (inline — trine-sync.mjs may not be installed yet)
+// ---------------------------------------------------------------------------
+
+function loadManifest() {
+  if (!existsSync(MANIFEST_PATH)) {
+    console.error('Error: manifest.json not found at', MANIFEST_PATH);
+    process.exit(1);
+  }
+  return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
+}
+
+function saveManifest(manifest) {
+  const content = JSON.stringify(manifest, null, 2) + '\n';
+  const tmpPath = MANIFEST_PATH + '.tmp';
+  writeFileSync(tmpPath, content, 'utf8');
+  renameSync(tmpPath, MANIFEST_PATH);
 }
 
 // ---------------------------------------------------------------------------
@@ -205,6 +416,7 @@ async function setupManifest(args) {
 async function main() {
   const args = process.argv.slice(2);
   const isUpdate = args.includes('--update');
+  const skipDiscover = args.includes('--skip-discover');
 
   console.log('');
   console.log('========================================');
@@ -212,14 +424,28 @@ async function main() {
   console.log('  SDD+DDD+TDD AI-Native Dev System');
   console.log('========================================');
 
+  // Steps 1-3: Always run
   checkPrerequisites();
-  copyScripts();
-  copyGlobalRules(isUpdate);
+  installScripts();
+  installGlobalRules(isUpdate);
 
-  if (!isUpdate) {
-    await setupManifest(args);
+  if (isUpdate) {
+    console.log('\n[4/6] Configure (skipped in update mode)');
+    console.log('[5/6] Discover (skipped in update mode)');
+    console.log('[6/6] Sync (skipped in update mode)');
   } else {
-    console.log('\n[4/4] Manifest (skipped in update mode)');
+    // Step 4: Configure manifest
+    await configure(args);
+
+    // Step 5: Discover & register projects
+    if (!skipDiscover) {
+      await discoverAndRegister();
+    } else {
+      console.log('\n[5/6] Discover (skipped via --skip-discover)');
+    }
+
+    // Step 6: First sync
+    firstSync();
   }
 
   console.log('');
@@ -229,17 +455,14 @@ async function main() {
 
   if (!isUpdate) {
     console.log('');
-    console.log('다음 단계:');
+    console.log('사용법:');
+    console.log('  trine-sync status                상태 확인');
+    console.log('  trine-sync sync                  동기화');
+    console.log('  trine-sync init <path> --name x  프로젝트 추가');
     console.log('');
-    console.log('  1. 프로젝트 등록:');
-    console.log('     node ~/.claude/scripts/trine-sync.mjs init /path/to/project \\');
-    console.log('       --name my-project --scope all --workspace wsl');
-    console.log('');
-    console.log('  2. 첫 동기화:');
-    console.log('     node ~/.claude/scripts/trine-sync.mjs sync \\');
-    console.log('       --target my-project --include-recommended');
-    console.log('');
-    console.log('  상세 가이드: trine-sync 후 docs/trine/trine-team-onboarding-guide.md');
+    console.log('시스템 업데이트:');
+    console.log('  cd ~/.claude/trine && git pull');
+    console.log('  node ~/.claude/trine/scripts/setup.mjs --update');
   }
 }
 

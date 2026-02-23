@@ -13,9 +13,14 @@
       "platform": "windows",
       "description": "Windows 기반 프로젝트 (Unity, C# 등)"
     },
+    "mac": {
+      "basePath": "{MAC_WORKSPACE}",
+      "platform": "darwin",
+      "description": "macOS 기반 프로젝트"
+    },
     "business": {
       "basePath": "{BUSINESS_PATH}",
-      "platform": "wsl",
+      "platform": "auto",
       "description": "비즈니스/기획 문서 워크스페이스 (비개발, shared-only)"
     }
   },
