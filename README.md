@@ -19,6 +19,14 @@ git clone git@github.com:moongci38-oss/trine.git ~/.claude/trine
 node ~/.claude/trine/scripts/setup.mjs
 ```
 
+> **Windows PowerShell 사용자**: PowerShell에서 `~`가 확장되지 않아 잘못된 위치에 clone될 수 있습니다.
+> `$HOME`을 사용하세요:
+>
+> ```powershell
+> git clone git@github.com:moongci38-oss/trine.git "$HOME\.claude\trine"
+> node "$HOME\.claude\trine\scripts\setup.mjs"
+> ```
+
 setup.mjs가 자동으로 수행하는 작업:
 
 1. 스크립트 설치 (`trine-sync.mjs`, `session-state.mjs` → `~/.claude/scripts/`)

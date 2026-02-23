@@ -135,6 +135,28 @@ function checkPrerequisites() {
   }
   console.log(`  ~/.claude/ ... OK`);
 
+  // Check if trine is cloned to the correct location (~/.claude/trine/)
+  const expectedTrineRoot = join(CLAUDE_DIR, 'trine');
+  const normalizedActual = normalPath(resolve(TRINE_ROOT));
+  const normalizedExpected = normalPath(resolve(expectedTrineRoot));
+  if (normalizedActual !== normalizedExpected) {
+    console.error('');
+    console.error('  ERROR: trine이 잘못된 경로에 clone되었습니다.');
+    console.error(`    현재 위치: ${TRINE_ROOT}`);
+    console.error(`    올바른 위치: ${expectedTrineRoot}`);
+    console.error('');
+    console.error('  PowerShell에서 ~ 가 확장되지 않아 발생하는 문제입니다.');
+    console.error('  해결:');
+    console.error('    1. 잘못된 폴더 삭제');
+    console.error('    2. 다시 clone:');
+    if (PLATFORM === 'win32') {
+      console.error(`       git clone git@github.com:moongci38-oss/trine.git "$HOME\\.claude\\trine"`);
+    } else {
+      console.error('       git clone git@github.com:moongci38-oss/trine.git ~/.claude/trine');
+    }
+    process.exit(1);
+  }
+
   const platformLabel = PLATFORM === 'darwin' ? 'macOS' : PLATFORM === 'win32' ? 'Windows' : 'Linux';
   console.log(`  Platform: ${platformLabel}`);
 }

@@ -155,10 +155,23 @@ HTTPS를 사용하는 경우:
 git clone https://github.com/moongci38-oss/trine.git ~/.claude/trine
 ```
 
+> **Windows PowerShell 사용자**: PowerShell에서 `~`가 홈 디렉토리로 확장되지 않아, 현재 폴더에 리터럴 `~` 디렉토리가 생성됩니다.
+> 반드시 `$HOME`을 사용하세요:
+>
+> ```powershell
+> git clone git@github.com:moongci38-oss/trine.git "$HOME\.claude\trine"
+> ```
+
 #### Step 2: Setup 실행 (이것만 실행하면 끝)
 
 ```bash
 node ~/.claude/trine/scripts/setup.mjs
+```
+
+PowerShell의 경우:
+
+```powershell
+node "$HOME\.claude\trine\scripts\setup.mjs"
 ```
 
 `setup.mjs`가 7단계를 자동으로 수행합니다:
@@ -612,6 +625,7 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 | `manifest.example.json not found` | repo 불완전 clone | `cd ~/.claude/trine && git pull` 후 재시도 |
 | `Agent SDK 설치 실패` | npm 권한 부족 | Mac/Linux: `sudo npm install -g`, Windows: 관리자 터미널 |
 | 워크스페이스 경로 존재하지 않음 | 잘못된 경로 입력 | `rm ~/.claude/trine/manifest.json` 후 재실행 |
+| `trine이 잘못된 경로에 clone되었습니다` | PowerShell에서 `~` 미확장 | 잘못된 폴더 삭제 후 `$HOME`으로 재clone (아래 11.5 참조) |
 
 ### 11.2 trine-sync 에러
 
@@ -631,7 +645,35 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 | `Permission denied (publickey)` | SSH 키 미등록 | `ssh-keygen` → GitHub Settings → SSH Keys에 등록 |
 | gh CLI와 SSH 계정 불일치 | 별개 인증 시스템 | `gh auth status`로 확인, `gh auth switch --user <name>` |
 
-### 11.4 FAQ
+### 11.4 Windows PowerShell: `~` 경로 문제
+
+PowerShell에서 `git clone ... ~/.claude/trine`을 실행하면 `~`가 홈 디렉토리로 확장되지 않고, **현재 디렉토리에 리터럴 `~` 폴더**가 생성됩니다.
+
+**증상:**
+
+```text
+PS C:\git\myproject> git clone ... ~/.claude/trine
+Cloning into '~/.claude/trine'...    ← 리터럴 ~ 폴더 생성!
+```
+
+`ls`를 실행하면 `~` 디렉토리가 보입니다.
+
+**해결:**
+
+```powershell
+# 1. 잘못 생성된 폴더 삭제
+Remove-Item -Recurse -Force "~"
+
+# 2. $HOME으로 다시 clone
+git clone git@github.com:moongci38-oss/trine.git "$HOME\.claude\trine"
+
+# 3. setup 실행
+node "$HOME\.claude\trine\scripts\setup.mjs"
+```
+
+> setup.mjs가 잘못된 경로를 감지하면 자동으로 에러 메시지와 올바른 명령어를 안내합니다.
+
+### 11.5 FAQ
 
 **Q: manifest.json을 실수로 커밋했어요.**
 A: `manifest.json`은 `.gitignore`에 있으므로 일반적으로 커밋되지 않습니다. 만약 추적 중이라면:
