@@ -7,7 +7,7 @@
 
 - [Claude Code](https://claude.ai/claude-code) CLI 설치
 - Node.js 18+
-- tmux (Agent Teams 사용 시 필수)
+- tmux (Agent Teams 사용 시 필수 — setup.mjs가 자동 확인)
 
 ## Quick Start
 
@@ -23,9 +23,10 @@ setup.mjs가 자동으로 수행하는 작업:
 
 1. 스크립트 설치 (`trine-sync.mjs`, `session-state.mjs` → `~/.claude/scripts/`)
 2. 전역 규칙 설치 (`global-rules/*.md` → `~/.claude/rules/`)
-3. 플랫폼 감지 (Windows/Mac) → 워크스페이스 경로 질문 → `manifest.json` 생성
-4. 워크스페이스 내 프로젝트 자동 발견 + 등록
-5. 첫 동기화 실행 (`--include-recommended`)
+3. 의존성 설치 (Agent SDK, Agent Teams 활성화, tmux 확인, 플러그인 8개)
+4. 플랫폼 감지 (Windows/Mac) → 워크스페이스 경로 질문 → `manifest.json` 생성
+5. 워크스페이스 내 프로젝트 자동 발견 + 등록
+6. 첫 동기화 실행 (`--include-recommended`)
 
 ## Updating
 
@@ -37,7 +38,7 @@ node ~/.claude/trine/scripts/setup.mjs --update
 node ~/.claude/scripts/trine-sync.mjs sync
 ```
 
-`--update`는 scripts와 global-rules만 갱신합니다 (manifest.json 유지).
+`--update`는 scripts, global-rules, 의존성을 갱신합니다 (manifest.json 유지).
 
 ## Contributing
 
@@ -156,6 +157,23 @@ ERROR: ~/.claude/ not found.
 ```bash
 npm install -g @anthropic-ai/claude-code
 claude  # 최초 실행 시 ~/.claude/ 자동 생성
+```
+
+### Agent SDK 설치 실패
+
+```
+npm install -g @anthropic-ai/claude-agent-sdk
+```
+
+권한 문제인 경우 `sudo` (Mac/Linux) 또는 관리자 터미널 (Windows)로 실행.
+
+### 플러그인 설치 실패
+
+Claude CLI가 인증되지 않은 경우 플러그인 설치가 실패할 수 있습니다:
+
+```bash
+claude  # 먼저 로그인 완료
+node ~/.claude/trine/scripts/setup.mjs --update  # 재실행
 ```
 
 ### 워크스페이스 경로 오류

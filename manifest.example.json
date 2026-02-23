@@ -83,7 +83,10 @@
       "writing-plans",
       "concise-planning",
       "kaizen",
-      "frontend-design"
+      "frontend-design",
+      "hook-creator",
+      "slash-command-creator",
+      "subagent-creator"
     ]
   },
   "toolchain": {
