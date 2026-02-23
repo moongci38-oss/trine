@@ -103,7 +103,7 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
     ├── prompts/                    ← 추천 프롬프트 (게이트)
     ├── commands/                   ← 추천 커맨드 (보안/UI 체크)
     ├── hooks/                      ← 추천 hooks (세션 컨텍스트 등)
-    └── skills/                     ← 추천 스킬 (4개)
+    └── skills/                     ← 추천 스킬 (7개)
 ```
 
 ### 2.2 개인 vs 공유 파일
@@ -121,7 +121,8 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 |------|----------|----------|---------|
 | `setup.mjs` | scripts (2개) | `~/.claude/scripts/` | clone 직후, 업데이트 시 |
 | `setup.mjs` | global-rules (3개) | `~/.claude/rules/` | clone 직후, 업데이트 시 |
-| `setup.mjs` | manifest.example.json | `manifest.json` 생성 | 최초 1회 |
+| `setup.mjs` | 의존성 (SDK, 플러그인) | 전역 설치 | clone 직후, 업데이트 시 |
+| `setup.mjs` | manifest.example.json | `manifest.json` 생성 | 최초 1회 (인터랙티브) |
 | `trine-sync` | Core (rules, prompts, docs, templates, agents, skills, commands) | 프로젝트 내부 | 동기화 시 |
 | `trine-sync` | shared-docs | 프로젝트 `docs/shared/` | 동기화 시 |
 | `trine-sync` | recommended | 프로젝트 내부 | 첫 배포 시만 |
@@ -134,12 +135,13 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 
 | 항목 | 요구사항 | 확인 방법 |
 |------|---------|----------|
-| Claude Code | CLI 설치 + `~/.claude/` 존재 | `ls ~/.claude/` |
+| Claude Code | CLI 설치 + `~/.claude/` 존재 | `claude --version` |
 | Node.js | 18 이상 | `node --version` |
 | GitHub SSH | `moongci38-oss/trine` repo 접근 가능 | `ssh -T git@github.com` |
-| tmux | Agent Teams 사용 시 필수 | `tmux -V` |
 
-### 3.2 셋업 순서
+> tmux, Agent SDK, 플러그인은 setup.mjs가 자동으로 확인/설치합니다.
+
+### 3.2 셋업 순서 (2단계)
 
 #### Step 1: Clone
 
@@ -147,74 +149,100 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 git clone git@github.com:moongci38-oss/trine.git ~/.claude/trine
 ```
 
-#### Step 2: Setup 실행
+HTTPS를 사용하는 경우:
+
+```bash
+git clone https://github.com/moongci38-oss/trine.git ~/.claude/trine
+```
+
+#### Step 2: Setup 실행 (이것만 실행하면 끝)
 
 ```bash
 node ~/.claude/trine/scripts/setup.mjs
 ```
 
-`setup.mjs`가 수행하는 작업:
+`setup.mjs`가 7단계를 자동으로 수행합니다:
 
-```
+```text
 ========================================
  Trine Setup
 ========================================
 
-1. Prerequisites check
-  Node.js: v24.x.x
-  Claude dir: C:\Users\{username}\.claude
+[1/7] Prerequisites
+  Node.js: v24.x.x ... OK
+  Claude dir: ~/.claude ... OK
 
-2. Copying scripts → ~/.claude/scripts/
-  + trine-sync.mjs → ~/.claude/scripts/
-  + session-state.mjs → ~/.claude/scripts/
+[2/7] Install Scripts → ~/.claude/scripts/
+  + trine-sync.mjs
+  + session-state.mjs
 
-3. Copying global-rules → ~/.claude/rules/
-  + docs-structure.md → ~/.claude/rules/
-  + opus-4-6-best-practices.md → ~/.claude/rules/
-  + plan-mode.md → ~/.claude/rules/
+[3/7] Install Rules → ~/.claude/rules/
+  + docs-structure.md
+  + opus-4-6-best-practices.md
+  + plan-mode.md
 
-4. Manifest setup
-  + Created manifest.json from manifest.example.json
+[4/7] Dependencies
+  Agent SDK ... OK (installed)
+  Agent Teams ... OK (enabled)
+  tmux (WSL) ... OK
+  Marketplace: anthropics/knowledge-work-plugins
+  + plugin: productivity installed
+  + plugin: product-management installed
+  ...
 
-  ACTION REQUIRED:
-  Edit ~/.claude/trine/manifest.json and replace placeholders:
-    {WSL_WORKSPACE}  → Your WSL workspace path
-    {WIN_WORKSPACE}  → Your Windows workspace path
-    {BUSINESS_PATH}  → Your business workspace path
+[5/7] Configure
+  플랫폼: Windows (win32)
+
+  워크스페이스 경로를 입력하세요. (Enter = 건너뛰기)
+
+  WSL 워크스페이스 경로: Z:/home/username/workspace
+  Windows 워크스페이스 경로: E:/workspace
+  Business 워크스페이스 경로 (선택):
+
+  + manifest.json created
+
+[6/7] Discover & Register
+
+  발견된 프로젝트:
+    1. portfolio  → Z:/home/username/workspace/portfolio-project  [all]
+    2. godblade   → E:/workspace/god_Sword/src                    [all]
+
+  등록하시겠습니까? (Y/n): Y
+  + portfolio registered
+  + godblade registered
+
+[7/7] First Sync
+  📦 Syncing → portfolio ... ✅ 25 copied
+  📦 Syncing → godblade  ... ✅ 25 copied
+
+========================================
+ Setup complete!
+========================================
 ```
 
-#### Step 3: manifest.json 경로 설정
+> **Mac 사용자**: 플랫폼을 자동 감지하여 "프로젝트 워크스페이스 경로" 한 줄만 질문합니다.
 
-`~/.claude/trine/manifest.json`을 열어 플레이스홀더를 본인 환경에 맞게 수정:
+### 3.3 자동 설치되는 의존성 (Step 4)
 
-```json
-{
-  "workspaces": {
-    "wsl": {
-      "basePath": "Z:/home/username/workspace",
-      "platform": "wsl",
-      "description": "Linux/WSL 기반 프로젝트"
-    },
-    "windows": {
-      "basePath": "E:/workspace",
-      "platform": "windows",
-      "description": "Windows 기반 프로젝트"
-    },
-    "business": {
-      "basePath": "Z:/home/username/business",
-      "platform": "wsl",
-      "description": "비즈니스/기획 문서"
-    }
-  },
-  "targets": {}
-}
-```
+| 항목 | 동작 |
+|------|------|
+| **Agent SDK** | `npm install -g @anthropic-ai/claude-agent-sdk` (미설치 시) |
+| **Agent Teams** | `~/.claude/settings.json`에 환경변수 자동 추가 |
+| **tmux** | 존재 확인 + 미설치 시 설치 안내 (Mac: `brew install tmux`, Linux: `apt install tmux`) |
+| **플러그인 8개** | `anthropics/knowledge-work-plugins` 마켓플레이스에서 자동 설치 |
 
-- 필요 없는 워크스페이스는 삭제 가능
-- 본인만의 워크스페이스를 추가 가능 (키 이름 자유)
-- `targets`는 비워두고 `trine-sync init`으로 등록
+설치되는 플러그인:
+`productivity`, `product-management`, `marketing`, `enterprise-search`, `data`, `sales`, `customer-support`, `cowork-plugin-management`
 
-#### Step 4: 프로젝트 등록
+### 3.4 프로젝트 자동 발견 (Step 6)
+
+워크스페이스 경로를 1단계 깊이로 스캔하여 `.claude/` 폴더가 있는 프로젝트를 자동 발견합니다.
+
+- 프로젝트 이름: 디렉토리명에서 자동 생성 (kebab-case)
+- Scope: 경로에 `business` 포함 → `shared-only`, 그 외 → `all`
+- 이미 등록된 프로젝트는 건너뜀 (멱등성)
+
+자동 발견에 실패한 프로젝트는 수동 등록 가능:
 
 ```bash
 node ~/.claude/scripts/trine-sync.mjs init /path/to/project \
@@ -224,16 +252,6 @@ node ~/.claude/scripts/trine-sync.mjs init /path/to/project \
   --workspace wsl
 ```
 
-**옵션 설명:**
-
-| 플래그 | 필수 | 설명 |
-|--------|:----:|------|
-| `<path>` | O | 프로젝트 절대 경로 |
-| `--name` | O | manifest에 등록할 이름 (영문, 하이픈) |
-| `--scope` | X | `all` (기본값) 또는 `shared-only` |
-| `--description` | X | 프로젝트 설명 |
-| `--workspace` | X | 워크스페이스 키 (그룹핑용) |
-
 **Scope 옵션:**
 
 | Scope | Core 배포 | Shared Docs 배포 | Recommended 배포 |
@@ -242,27 +260,6 @@ node ~/.claude/scripts/trine-sync.mjs init /path/to/project \
 | `shared-only` | X | O | X |
 
 비개발 워크스페이스(business 등)는 `shared-only` scope로 등록.
-
-#### Step 5: 첫 동기화
-
-```bash
-node ~/.claude/scripts/trine-sync.mjs sync --target my-project --include-recommended
-```
-
-첫 동기화는 `--include-recommended`를 포함하여 추천 구성도 함께 배포.
-
-출력 예시:
-```
-📦 Syncing → my-project (Z:/home/username/my-project) [scope: all]
-  + .claude/rules/trine-workflow.md
-  + .claude/rules/trine-session-state.md
-  + .claude/prompts/trine-pipeline.md
-  + docs/trine/trine-architecture.md
-  + .specify/templates/spec-template-base.md
-  ...
-
-✅ Sync complete: 25 copied, 0 skipped (customized), 0 up-to-date
-```
 
 ---
 
@@ -285,6 +282,7 @@ node ~/.claude/scripts/trine-sync.mjs sync
 **`--update` 모드 동작:**
 - `scripts/` → `~/.claude/scripts/` 덮어쓰기
 - `global-rules/` → `~/.claude/rules/` 덮어쓰기
+- 의존성 확인/업데이트 (Agent SDK, 플러그인 등)
 - `manifest.json` → 건드리지 않음 (개인 설정 보존)
 
 ---
@@ -355,11 +353,21 @@ node ~/.claude/scripts/session-state.mjs clean
 ### 5.3 setup.mjs
 
 ```bash
-# 초기 셋업 (모든 것 복사 + manifest 생성)
+# 초기 셋업 (7단계 전체 실행)
 node ~/.claude/trine/scripts/setup.mjs
 
-# 업데이트 (scripts + global-rules만, manifest 유지)
+# 업데이트 (scripts + global-rules + 의존성만, manifest 유지)
 node ~/.claude/trine/scripts/setup.mjs --update
+
+# 의존성 설치 건너뛰기
+node ~/.claude/trine/scripts/setup.mjs --skip-deps
+
+# 프로젝트 자동 발견 건너뛰기
+node ~/.claude/trine/scripts/setup.mjs --skip-discover
+
+# 비대화형 (CI/스크립트)
+node ~/.claude/trine/scripts/setup.mjs --workspace ~/projects --business ~/biz   # Mac
+node ~/.claude/trine/scripts/setup.mjs --wsl-path "Z:/ws" --win-path "E:/ws"     # Windows
 ```
 
 ---
@@ -546,12 +554,26 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 | `concise-planning` | 간결한 계획 작성 |
 | `kaizen` | 지속적 개선 |
 | `frontend-design` | 프론트엔드 UI/UX 디자인 |
+| `hook-creator` | Claude Code Hook 생성 |
+| `slash-command-creator` | 슬래시 커맨드 생성 |
+| `subagent-creator` | 커스텀 에이전트 생성 |
 
 ---
 
 ## 10. 작업 이력
 
-### 10.1 v1.2.0 변경사항 (2026-02-23)
+### 10.1 v1.3.0 변경사항 (2026-02-23)
+
+| 변경 | 설명 |
+|------|------|
+| 원커맨드 셋업 | setup.mjs 7단계 자동 실행 (clone + setup.mjs 2단계로 온보딩 완료) |
+| 의존성 자동 설치 | Agent SDK, Agent Teams, tmux, 플러그인 8개 자동 설치 |
+| 크로스 플랫폼 | Windows + Mac 양쪽 지원 (플랫폼 자동 감지) |
+| 프로젝트 자동 발견 | 워크스페이스 스캔 → `.claude/` 프로젝트 자동 등록 |
+| 글로벌 스킬 3개 추가 | hook-creator, slash-command-creator, subagent-creator |
+| CLI 플래그 확장 | `--skip-deps`, `--skip-discover`, 비대화형 모드 |
+
+### 10.2 v1.2.0 변경사항 (2026-02-23)
 
 | 변경 | 설명 |
 |------|------|
@@ -593,9 +615,12 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 
 | 에러 메시지 | 원인 | 해결 |
 |------------|------|------|
-| `Node.js 18+ required (current: 16.x)` | Node.js 버전 낮음 | Node.js 18 이상 설치 |
-| `~/.claude/ not found` | Claude Code 미설치 | Claude Code CLI 설치 후 `claude` 명령 1회 실행 |
+| `Node.js 18+ required (current: 16.x)` | Node.js 버전 낮음 | [nodejs.org](https://nodejs.org)에서 LTS 설치. Mac: `brew install node` |
+| `~/.claude/ not found` | Claude Code 미설치 | `npm install -g @anthropic-ai/claude-code && claude` |
 | `manifest.example.json not found` | repo 불완전 clone | `cd ~/.claude/trine && git pull` 후 재시도 |
+| `Agent SDK 설치 실패` | npm 권한 부족 | Mac/Linux: `sudo npm install -g`, Windows: 관리자 터미널 |
+| 플러그인 설치 실패 | Claude CLI 미인증 | `claude` 로그인 완료 후 `setup.mjs --update` 재실행 |
+| 워크스페이스 경로 존재하지 않음 | 잘못된 경로 입력 | `rm ~/.claude/trine/manifest.json` 후 재실행 |
 
 ### 11.2 trine-sync 에러
 
