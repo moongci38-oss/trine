@@ -10,7 +10,7 @@
  *   1. Verify prerequisites (Node.js 18+, ~/.claude/ exists)
  *   2. Install scripts → ~/.claude/scripts/
  *   3. Install global rules → ~/.claude/rules/
- *   4. Install dependencies (Agent SDK, Agent Teams env, plugins)
+ *   4. Check dependencies (Agent Teams env, tmux)
  *   5. Detect platform & configure workspaces → manifest.json
  *   6. Auto-discover Claude Code projects in workspaces
  *   7. Run first sync (trine-sync --include-recommended)
@@ -56,21 +56,6 @@ const TRINE_SYNC_PATH = join(SCRIPTS_DIR, 'trine-sync.mjs');
 // Note: process.platform returns 'win32' for ALL Windows (32-bit and 64-bit alike).
 // This is a Node.js/Win32 API naming convention, not an architecture indicator.
 const PLATFORM = platform();
-
-// Plugins to auto-install (marketplace → plugin list)
-const PLUGIN_MARKETPLACES = [
-  'anthropics/knowledge-work-plugins',
-];
-const PLUGINS_TO_INSTALL = [
-  'productivity',
-  'product-management',
-  'marketing',
-  'enterprise-search',
-  'data',
-  'sales',
-  'customer-support',
-  'cowork-plugin-management',
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -199,27 +184,13 @@ function installGlobalRules(forceOverwrite = false) {
 }
 
 // ---------------------------------------------------------------------------
-// [4/7] Dependencies — Agent SDK, Agent Teams, Plugins, tmux
+// [4/7] Dependencies — Agent Teams, tmux
 // ---------------------------------------------------------------------------
 
 function installDependencies() {
   console.log('\n[4/7] Dependencies');
 
-  // 4a. Agent SDK
-  const agentSdkInstalled = runQuiet('npm list -g @anthropic-ai/claude-agent-sdk --depth=0');
-  if (agentSdkInstalled && agentSdkInstalled.includes('claude-agent-sdk')) {
-    console.log('  Agent SDK ... OK (installed)');
-  } else {
-    console.log('  Agent SDK ... installing');
-    try {
-      execSync('npm install -g @anthropic-ai/claude-agent-sdk', { stdio: 'inherit' });
-      console.log('  + Agent SDK installed');
-    } catch {
-      console.log('  ⚠ Agent SDK 설치 실패. 수동 설치: npm install -g @anthropic-ai/claude-agent-sdk');
-    }
-  }
-
-  // 4b. Agent Teams env var → ~/.claude/settings.json
+  // 4a. Agent Teams env var → ~/.claude/settings.json
   let settings = {};
   if (existsSync(USER_SETTINGS_PATH)) {
     try { settings = JSON.parse(readFileSync(USER_SETTINGS_PATH, 'utf8')); } catch { settings = {}; }
@@ -234,7 +205,7 @@ function installDependencies() {
     console.log('  + Agent Teams enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1)');
   }
 
-  // 4c. tmux check (Agent Teams requires tmux for parallel execution)
+  // 4b. tmux check (Agent Teams requires tmux for parallel execution)
   if (PLATFORM !== 'win32') {
     // Mac/Linux: check tmux directly
     const tmuxVersion = runQuiet('tmux -V');
@@ -259,41 +230,6 @@ function installDependencies() {
     }
   }
 
-  // 4d. Plugins — add marketplace + install plugins
-  const claudeCmd = PLATFORM === 'win32' ? 'claude.cmd' : 'claude';
-  const claudeExists = runQuiet(`${claudeCmd} --version`);
-  if (!claudeExists) {
-    console.log('  ⚠ claude CLI를 찾을 수 없어 플러그인 자동 설치를 건너뜁니다.');
-    console.log('    Claude Code 설치 후 수동 설치:');
-    for (const mp of PLUGIN_MARKETPLACES) {
-      console.log(`    claude plugin marketplace add ${mp}`);
-    }
-    for (const p of PLUGINS_TO_INSTALL) {
-      console.log(`    claude plugin install ${p}`);
-    }
-    return;
-  }
-
-  // Add marketplaces
-  for (const mp of PLUGIN_MARKETPLACES) {
-    console.log(`  Marketplace: ${mp}`);
-    try {
-      execSync(`${claudeCmd} plugin marketplace add ${mp}`, { stdio: ['pipe', 'pipe', 'pipe'] });
-      console.log(`  + ${mp} added`);
-    } catch {
-      console.log(`  - ${mp} (already added or failed)`);
-    }
-  }
-
-  // Install plugins
-  for (const p of PLUGINS_TO_INSTALL) {
-    try {
-      execSync(`${claudeCmd} plugin install ${p}`, { stdio: ['pipe', 'pipe', 'pipe'] });
-      console.log(`  + plugin: ${p} installed`);
-    } catch {
-      console.log(`  - plugin: ${p} (already installed or failed)`);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
