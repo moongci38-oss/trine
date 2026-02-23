@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
- * trine-sync.mjs
- * Trine Central Repository → Project Sync Engine
+ * trine-sync.mjs v1.4.0
+ * Trine Global + Project Sync Engine
  *
- * Deploys Core/Recommended components from ~/.claude/trine/ to registered projects.
- * Uses SHA-256 hash comparison — only copies changed files.
+ * v1.4.0: Global deployment model
+ *   - rules, agents, skills, commands, prompts → ~/.claude/ (global, all projects)
+ *   - templates → project .specify/templates/ (project-only, scope: all)
+ *   - hooks → project .claude/hooks/ (project-only, --include-recommended)
+ *   - docs, shared-docs → no longer deployed (reference from ~/.claude/trine/ directly)
  *
- * Override tracking (v1.2.0):
- *   Per-project state file records deployed hashes.
- *   - If project file matches deployed hash → auto-update with new source.
- *   - If project file differs from deployed hash → skip (genuinely customized).
- *   - First run (no state): records current hashes, skips overrides (backwards compat).
+ * Override tracking:
+ *   Only templates use per-project state-based override tracking.
+ *   Global components always sync to match source (no override).
  *
  * Installed at: ~/.claude/scripts/trine-sync.mjs
  * Source:       ~/.claude/trine/
@@ -22,7 +23,7 @@
  * Commands:
  *   sync [--target <name>] [--include-recommended] [--dry-run]
  *   status [--quiet]
- *   diff <target>
+ *   diff [<target>]
  *   list [--workspace <key>]
  *   init <path> --name <name> [--scope all|shared-only] [--description "..."] [--workspace <key>]
  *   remove <name>
@@ -33,8 +34,8 @@
  *   2 = Out of sync (status --quiet)
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, copyFileSync, statSync, renameSync } from 'node:fs';
-import { join, dirname, relative, basename, resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, copyFileSync, renameSync } from 'node:fs';
+import { join, dirname, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 
@@ -43,36 +44,39 @@ import { homedir } from 'node:os';
 // ---------------------------------------------------------------------------
 
 const HOME = homedir();
-const TRINE_ROOT = join(HOME, '.claude', 'trine');
+const CLAUDE_DIR = join(HOME, '.claude');
+const TRINE_ROOT = join(CLAUDE_DIR, 'trine');
 const MANIFEST_PATH = join(TRINE_ROOT, 'manifest.json');
-const SCRIPTS_DIR = join(HOME, '.claude', 'scripts');
 
-// Core deployment mapping: trine source dir → project target dir
-const CORE_MAPPINGS = [
-  { src: 'rules',     dst: '.claude/rules' },
-  { src: 'prompts',   dst: '.claude/prompts' },
-  { src: 'docs',      dst: 'docs/trine' },
+// Global deployment: trine source → ~/.claude/ (applies to ALL projects)
+const GLOBAL_MAPPINGS = [
+  { src: 'global-rules', dst: 'rules' },
+  { src: 'rules',        dst: 'rules' },
+  { src: 'agents',       dst: 'agents' },
+  { src: 'skills',       dst: 'skills' },
+  { src: 'commands',     dst: 'commands' },
+  { src: 'prompts',      dst: 'prompts' },
+];
+
+// Global recommended (also to ~/.claude/, skip if file exists)
+const GLOBAL_RECOMMENDED_MAPPINGS = [
+  { src: 'recommended/skills',   dst: 'skills' },
+  { src: 'recommended/commands', dst: 'commands' },
+  { src: 'recommended/prompts',  dst: 'prompts' },
+];
+
+// Project-only deployment (scope: all targets only)
+const PROJECT_MAPPINGS = [
   { src: 'templates', dst: '.specify/templates' },
-  { src: 'agents',    dst: '.claude/agents' },
-  { src: 'skills',    dst: '.claude/skills' },
-  { src: 'commands',  dst: '.claude/commands' },
 ];
 
-// Shared docs deployment mapping (all targets including shared-only scope)
-const SHARED_MAPPINGS = [
-  { src: 'shared-docs', dst: 'docs/shared' },
+// Project-only recommended (hooks are project-specific)
+const PROJECT_RECOMMENDED_MAPPINGS = [
+  { src: 'recommended/hooks', dst: '.claude/hooks' },
 ];
 
-// Recommended deployment mapping
-const RECOMMENDED_MAPPINGS = [
-  { src: 'recommended/prompts',  dst: '.claude/prompts' },
-  { src: 'recommended/commands', dst: '.claude/commands' },
-  { src: 'recommended/hooks',    dst: '.claude/hooks' },
-  { src: 'recommended/skills',   dst: '.claude/skills' },
-];
-
-// Override policy: these categories use state-based tracking
-const OVERRIDE_CATEGORIES = new Set(['templates', 'agents', 'skills']);
+// Override policy: only templates use state-based tracking
+const OVERRIDE_CATEGORIES = new Set(['templates']);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -125,7 +129,7 @@ function normalPath(p) {
 }
 
 // ---------------------------------------------------------------------------
-// Sync State (per-project override tracking)
+// Sync State (per-project override tracking — templates only)
 // ---------------------------------------------------------------------------
 
 function getSyncStatePath(projectPath) {
@@ -153,81 +157,57 @@ function saveSyncState(projectPath, state, dryRun) {
 }
 
 // ---------------------------------------------------------------------------
-// Commands
+// Global Sync (no override tracking — always match source)
 // ---------------------------------------------------------------------------
 
-function cmdSync(args) {
-  const manifest = loadManifest();
-  const targetName = getArg(args, '--target');
-  const includeRecommended = args.includes('--include-recommended');
-  const dryRun = args.includes('--dry-run');
+function syncGlobal(mappings, dryRun, isRecommended) {
+  let copied = 0, upToDate = 0;
 
-  const targets = targetName
-    ? { [targetName]: manifest.targets[targetName] }
-    : manifest.targets;
+  for (const mapping of mappings) {
+    const srcDir = join(TRINE_ROOT, mapping.src);
+    if (!existsSync(srcDir)) continue;
 
-  if (targetName && !manifest.targets[targetName]) {
-    console.error(`Error: target '${targetName}' not found in manifest.`);
-    console.error('Available targets:', Object.keys(manifest.targets).join(', '));
-    process.exit(1);
+    const dstDir = join(CLAUDE_DIR, mapping.dst);
+    ensureDir(dstDir);
+    const files = collectFiles(srcDir);
+
+    for (const relFile of files) {
+      const srcFile = join(srcDir, relFile);
+      const dstFile = join(dstDir, relFile);
+
+      const srcHash = fileHash(srcFile);
+      const dstHash = fileHash(dstFile);
+
+      // Recommended: skip if already exists
+      if (isRecommended && dstHash) {
+        upToDate++;
+        continue;
+      }
+
+      if (srcHash === dstHash) {
+        upToDate++;
+        continue;
+      }
+
+      if (!dryRun) {
+        ensureDir(dirname(dstFile));
+        copyFileSync(srcFile, dstFile);
+      }
+
+      const action = dstHash ? '↻' : '+';
+      console.log(`  ${action} ~/.claude/${mapping.dst}/${relFile}`);
+      copied++;
+    }
   }
 
-  let totalCopied = 0;
-  let totalSkipped = 0;
-  let totalUpToDate = 0;
-  let totalAutoUpdated = 0;
-
-  for (const [name, config] of Object.entries(targets)) {
-    const projectPath = resolve(config.path);
-    if (!existsSync(projectPath)) {
-      console.warn(`⚠ Target '${name}' path not found: ${projectPath}`);
-      continue;
-    }
-
-    const scope = config.scope || 'all';
-    console.log(`\n📦 Syncing → ${name} (${normalPath(projectPath)}) [scope: ${scope}]`);
-
-    // Load per-project sync state for override tracking
-    const syncState = loadSyncState(projectPath);
-
-    // Core sync (skip for shared-only targets like business)
-    if (scope !== 'shared-only') {
-      const coreResult = syncMappings(CORE_MAPPINGS, projectPath, dryRun, false, syncState);
-      totalCopied += coreResult.copied;
-      totalSkipped += coreResult.skipped;
-      totalUpToDate += coreResult.upToDate;
-      totalAutoUpdated += coreResult.autoUpdated;
-    }
-
-    // Shared docs sync (all targets)
-    const sharedResult = syncMappings(SHARED_MAPPINGS, projectPath, dryRun, false, syncState);
-    totalCopied += sharedResult.copied;
-    totalSkipped += sharedResult.skipped;
-    totalUpToDate += sharedResult.upToDate;
-    totalAutoUpdated += sharedResult.autoUpdated;
-
-    // Recommended sync (only if --include-recommended, skip for shared-only)
-    if (includeRecommended && scope !== 'shared-only') {
-      const recResult = syncMappings(RECOMMENDED_MAPPINGS, projectPath, dryRun, true, syncState);
-      totalCopied += recResult.copied;
-      totalSkipped += recResult.skipped;
-      totalUpToDate += recResult.upToDate;
-      totalAutoUpdated += recResult.autoUpdated;
-    }
-
-    // Save sync state
-    saveSyncState(projectPath, syncState, dryRun);
-  }
-
-  const parts = [`${totalCopied} copied`];
-  if (totalAutoUpdated > 0) parts.push(`${totalAutoUpdated} override auto-updated`);
-  if (totalSkipped > 0) parts.push(`${totalSkipped} skipped (customized)`);
-  parts.push(`${totalUpToDate} up-to-date`);
-  console.log(`\n✅ Sync complete: ${parts.join(', ')}`);
-  if (dryRun) console.log('   (dry-run — no files were actually copied)');
+  return { copied, upToDate };
 }
 
-function syncMappings(mappings, projectPath, dryRun, isRecommended, syncState) {
+// ---------------------------------------------------------------------------
+// Project Sync (templates with override tracking)
+// ---------------------------------------------------------------------------
+
+function syncProject(mappings, projectPath, dryRun, isRecommended, syncState) {
   let copied = 0, skipped = 0, upToDate = 0, autoUpdated = 0;
 
   for (const mapping of mappings) {
@@ -246,26 +226,19 @@ function syncMappings(mappings, projectPath, dryRun, isRecommended, syncState) {
       const dstHash = fileHash(dstFile);
       let isAutoUpdate = false;
 
-      // Override tracking: templates/agents/skills
+      // Override tracking: templates only
       if (OVERRIDE_CATEGORIES.has(category) && dstHash) {
         if (srcHash === dstHash) {
-          // Identical → up to date, record in state
           syncState.files[stateKey] = srcHash;
           upToDate++;
           continue;
         }
 
-        // Different content → check state to determine action
         const deployedHash = syncState.files[stateKey];
-
         if (deployedHash && dstHash === deployedHash) {
-          // Project file unchanged since last deploy → safe to auto-update
           isAutoUpdate = true;
-          // Fall through to copy logic
         } else {
-          // No state entry OR project customized → skip
           if (!deployedHash) {
-            // First time tracking: record project file hash for future comparison
             syncState.files[stateKey] = dstHash;
           }
           console.log(`  ⏭ ${normalPath(relative(projectPath, dstFile))} (project override)`);
@@ -274,20 +247,18 @@ function syncMappings(mappings, projectPath, dryRun, isRecommended, syncState) {
         }
       }
 
-      // Recommended: skip if file already exists (initial deployment only)
+      // Recommended: skip if file already exists
       if (isRecommended && dstHash) {
         upToDate++;
         continue;
       }
 
-      // Hash comparison: skip if identical
       if (srcHash === dstHash) {
         syncState.files[stateKey] = srcHash;
         upToDate++;
         continue;
       }
 
-      // Copy
       if (!dryRun) {
         ensureDir(dirname(dstFile));
         copyFileSync(srcFile, dstFile);
@@ -308,37 +279,139 @@ function syncMappings(mappings, projectPath, dryRun, isRecommended, syncState) {
   return { copied, skipped, upToDate, autoUpdated };
 }
 
-function cmdStatus(args) {
-  const manifest = loadManifest();
-  const quiet = args.includes('--quiet');
-  let allSynced = true;
-  const statusLines = [];
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
 
-  for (const [name, config] of Object.entries(manifest.targets)) {
+function cmdSync(args) {
+  const manifest = loadManifest();
+  const targetName = getArg(args, '--target');
+  const includeRecommended = args.includes('--include-recommended');
+  const dryRun = args.includes('--dry-run');
+
+  let totalCopied = 0, totalSkipped = 0, totalUpToDate = 0, totalAutoUpdated = 0;
+
+  // 1. Global sync → ~/.claude/ (always, regardless of --target)
+  console.log('\n🌐 Global Sync → ~/.claude/');
+  const globalResult = syncGlobal(GLOBAL_MAPPINGS, dryRun, false);
+  totalCopied += globalResult.copied;
+  totalUpToDate += globalResult.upToDate;
+
+  if (includeRecommended) {
+    const recResult = syncGlobal(GLOBAL_RECOMMENDED_MAPPINGS, dryRun, true);
+    totalCopied += recResult.copied;
+    totalUpToDate += recResult.upToDate;
+  }
+
+  // 2. Project sync → templates + hooks (scope: all targets only)
+  const targets = targetName
+    ? { [targetName]: manifest.targets[targetName] }
+    : manifest.targets;
+
+  if (targetName && !manifest.targets[targetName]) {
+    console.error(`Error: target '${targetName}' not found in manifest.`);
+    console.error('Available targets:', Object.keys(manifest.targets).join(', '));
+    process.exit(1);
+  }
+
+  for (const [name, config] of Object.entries(targets)) {
     const projectPath = resolve(config.path);
     if (!existsSync(projectPath)) {
-      if (!quiet) console.log(`⚠ ${name}: path not found`);
-      allSynced = false;
+      console.warn(`⚠ Target '${name}' path not found: ${projectPath}`);
       continue;
     }
 
     const scope = config.scope || 'all';
+    if (scope === 'shared-only') continue;
+
+    console.log(`\n📦 Project → ${name} (templates)`);
+
     const syncState = loadSyncState(projectPath);
-    let outOfSync = 0;
-    let missing = 0;
-    let synced = 0;
 
-    // Check core mappings (skip for shared-only)
-    const mappingsToCheck = scope === 'shared-only'
-      ? SHARED_MAPPINGS
-      : [...CORE_MAPPINGS, ...SHARED_MAPPINGS];
+    const projResult = syncProject(PROJECT_MAPPINGS, projectPath, dryRun, false, syncState);
+    totalCopied += projResult.copied;
+    totalSkipped += projResult.skipped;
+    totalUpToDate += projResult.upToDate;
+    totalAutoUpdated += projResult.autoUpdated;
 
-    for (const mapping of mappingsToCheck) {
+    if (includeRecommended) {
+      const recResult = syncProject(PROJECT_RECOMMENDED_MAPPINGS, projectPath, dryRun, true, syncState);
+      totalCopied += recResult.copied;
+      totalSkipped += recResult.skipped;
+      totalUpToDate += recResult.upToDate;
+      totalAutoUpdated += recResult.autoUpdated;
+    }
+
+    saveSyncState(projectPath, syncState, dryRun);
+  }
+
+  // Summary
+  const parts = [`${totalCopied} copied`];
+  if (totalAutoUpdated > 0) parts.push(`${totalAutoUpdated} override auto-updated`);
+  if (totalSkipped > 0) parts.push(`${totalSkipped} skipped (customized)`);
+  parts.push(`${totalUpToDate} up-to-date`);
+  console.log(`\n✅ Sync complete: ${parts.join(', ')}`);
+  if (dryRun) console.log('   (dry-run — no files were actually copied)');
+}
+
+function cmdStatus(args) {
+  const manifest = loadManifest();
+  const quiet = args.includes('--quiet');
+  let allSynced = true;
+
+  // 1. Global status
+  let globalOutOfSync = 0, globalMissing = 0, globalSynced = 0;
+
+  for (const mapping of GLOBAL_MAPPINGS) {
+    const srcDir = join(TRINE_ROOT, mapping.src);
+    if (!existsSync(srcDir)) continue;
+
+    const files = collectFiles(srcDir);
+    for (const relFile of files) {
+      const srcFile = join(srcDir, relFile);
+      const dstFile = join(CLAUDE_DIR, mapping.dst, relFile);
+
+      if (!existsSync(dstFile)) {
+        globalMissing++;
+      } else if (fileHash(srcFile) === fileHash(dstFile)) {
+        globalSynced++;
+      } else {
+        globalOutOfSync++;
+      }
+    }
+  }
+
+  if (!quiet) {
+    const status = (globalOutOfSync === 0 && globalMissing === 0) ? '✅' : '⚠';
+    console.log(`\n[global] ~/.claude/`);
+    console.log(`  ${status} ${globalSynced} synced, ${globalOutOfSync} outdated, ${globalMissing} missing`);
+  }
+
+  if (globalOutOfSync > 0 || globalMissing > 0) allSynced = false;
+
+  // 2. Project status (templates only, scope: all)
+  const statusLines = [];
+
+  for (const [name, config] of Object.entries(manifest.targets)) {
+    const projectPath = resolve(config.path);
+    const scope = config.scope || 'all';
+
+    if (scope === 'shared-only') continue;
+
+    if (!existsSync(projectPath)) {
+      if (!quiet) statusLines.push({ name, workspace: config.workspace || null, line: `⚠ ${name}: path not found` });
+      allSynced = false;
+      continue;
+    }
+
+    const syncState = loadSyncState(projectPath);
+    let outOfSync = 0, missing = 0, synced = 0;
+
+    for (const mapping of PROJECT_MAPPINGS) {
       const srcDir = join(TRINE_ROOT, mapping.src);
       if (!existsSync(srcDir)) continue;
 
       const files = collectFiles(srcDir);
-      const category = mapping.src;
 
       for (const relFile of files) {
         const srcFile = join(srcDir, relFile);
@@ -347,33 +420,33 @@ function cmdStatus(args) {
 
         if (!existsSync(dstFile)) {
           missing++;
-          continue;
-        }
-
-        const srcHash = fileHash(srcFile);
-        const dstHash = fileHash(dstFile);
-
-        if (OVERRIDE_CATEGORIES.has(category) && srcHash !== dstHash) {
-          const deployedHash = syncState.files[stateKey];
-          if (deployedHash && dstHash === deployedHash) {
-            // Not customized, just outdated → will be auto-updated
-            outOfSync++;
-          } else {
-            // Customized → counted as synced (override)
-            synced++;
-          }
-        } else if (srcHash === dstHash) {
-          synced++;
         } else {
-          outOfSync++;
+          const srcHash = fileHash(srcFile);
+          const dstHash = fileHash(dstFile);
+
+          if (srcHash === dstHash) {
+            synced++;
+          } else if (OVERRIDE_CATEGORIES.has(mapping.src)) {
+            const deployedHash = syncState.files[stateKey];
+            if (deployedHash && dstHash === deployedHash) {
+              outOfSync++;
+            } else {
+              synced++;  // customized override
+            }
+          } else {
+            outOfSync++;
+          }
         }
       }
     }
 
     if (!quiet) {
-      const scopeLabel = scope === 'shared-only' ? ' (shared-only)' : '';
       const status = (outOfSync === 0 && missing === 0) ? '✅' : '⚠';
-      statusLines.push({ name, workspace: config.workspace || null, line: `${status} ${name}${scopeLabel}: ${synced} synced, ${outOfSync} outdated, ${missing} missing` });
+      statusLines.push({
+        name,
+        workspace: config.workspace || null,
+        line: `${status} ${name} (templates): ${synced} synced, ${outOfSync} outdated, ${missing} missing`,
+      });
     }
 
     if (outOfSync > 0 || missing > 0) allSynced = false;
@@ -384,36 +457,62 @@ function cmdStatus(args) {
   }
 
   // Group output by workspace
-  const workspaces = manifest.workspaces || {};
-  const grouped = {};
-  const ungrouped = [];
-  for (const item of statusLines) {
-    if (item.workspace && workspaces[item.workspace]) {
-      if (!grouped[item.workspace]) grouped[item.workspace] = [];
-      grouped[item.workspace].push(item.line);
-    } else {
-      ungrouped.push(item.line);
-    }
-  }
+  if (statusLines.length > 0) {
+    const workspaces = manifest.workspaces || {};
+    const grouped = {};
+    const ungrouped = [];
 
-  for (const [wsKey, lines] of Object.entries(grouped)) {
-    console.log(`\n[${wsKey}]`);
-    for (const line of lines) console.log(`  ${line}`);
-  }
-  if (ungrouped.length > 0) {
-    if (Object.keys(grouped).length > 0) console.log('\n[ungrouped]');
-    for (const line of ungrouped) console.log(`  ${line}`);
+    for (const item of statusLines) {
+      if (item.workspace && workspaces[item.workspace]) {
+        if (!grouped[item.workspace]) grouped[item.workspace] = [];
+        grouped[item.workspace].push(item.line);
+      } else {
+        ungrouped.push(item.line);
+      }
+    }
+
+    for (const [wsKey, lines] of Object.entries(grouped)) {
+      console.log(`\n[${wsKey}]`);
+      for (const line of lines) console.log(`  ${line}`);
+    }
+    if (ungrouped.length > 0) {
+      if (Object.keys(grouped).length > 0) console.log('\n[ungrouped]');
+      for (const line of ungrouped) console.log(`  ${line}`);
+    }
   }
 }
 
 function cmdDiff(args) {
   const targetName = args[0];
+  const manifest = loadManifest();
+
+  // No target → show global diff
   if (!targetName) {
-    console.error('Usage: trine-sync.mjs diff <target>');
-    process.exit(1);
+    console.log('📊 Diff: trine source vs global (~/.claude/)\n');
+
+    for (const mapping of GLOBAL_MAPPINGS) {
+      const srcDir = join(TRINE_ROOT, mapping.src);
+      if (!existsSync(srcDir)) continue;
+
+      const files = collectFiles(srcDir);
+      for (const relFile of files) {
+        const srcFile = join(srcDir, relFile);
+        const dstFile = join(CLAUDE_DIR, mapping.dst, relFile);
+
+        const srcHash = fileHash(srcFile);
+        const dstHash = fileHash(dstFile);
+
+        if (!dstHash) {
+          console.log(`  + ${mapping.dst}/${relFile} (missing)`);
+        } else if (srcHash !== dstHash) {
+          console.log(`  ≠ ${mapping.dst}/${relFile} (src=${srcHash} dst=${dstHash})`);
+        }
+      }
+    }
+    return;
   }
 
-  const manifest = loadManifest();
+  // With target → show project diff (templates)
   const config = manifest.targets[targetName];
   if (!config) {
     console.error(`Error: target '${targetName}' not found.`);
@@ -421,20 +520,14 @@ function cmdDiff(args) {
   }
 
   const projectPath = resolve(config.path);
-  const scope = config.scope || 'all';
   const syncState = loadSyncState(projectPath);
-  console.log(`📊 Diff: trine source vs ${targetName} [scope: ${scope}]\n`);
+  console.log(`📊 Diff: trine templates vs ${targetName}\n`);
 
-  const mappingsToCheck = scope === 'shared-only'
-    ? SHARED_MAPPINGS
-    : [...CORE_MAPPINGS, ...SHARED_MAPPINGS];
-
-  for (const mapping of mappingsToCheck) {
+  for (const mapping of PROJECT_MAPPINGS) {
     const srcDir = join(TRINE_ROOT, mapping.src);
     if (!existsSync(srcDir)) continue;
 
     const files = collectFiles(srcDir);
-    const category = mapping.src;
 
     for (const relFile of files) {
       const srcFile = join(srcDir, relFile);
@@ -445,17 +538,13 @@ function cmdDiff(args) {
       const dstHash = fileHash(dstFile);
 
       if (!dstHash) {
-        console.log(`  + ${category}/${relFile} (missing in project)`);
+        console.log(`  + templates/${relFile} (missing in project)`);
       } else if (srcHash !== dstHash) {
-        if (OVERRIDE_CATEGORIES.has(category)) {
-          const deployedHash = syncState.files[stateKey];
-          if (deployedHash && dstHash === deployedHash) {
-            console.log(`  ↻ ${category}/${relFile} (will auto-update, src=${srcHash} dst=${dstHash})`);
-          } else {
-            console.log(`  ⏭ ${category}/${relFile} (customized, src=${srcHash} dst=${dstHash})`);
-          }
+        const deployedHash = syncState.files[stateKey];
+        if (deployedHash && dstHash === deployedHash) {
+          console.log(`  ↻ templates/${relFile} (will auto-update, src=${srcHash} dst=${dstHash})`);
         } else {
-          console.log(`  ≠ ${category}/${relFile} (src=${srcHash} dst=${dstHash})`);
+          console.log(`  ⏭ templates/${relFile} (customized, src=${srcHash} dst=${dstHash})`);
         }
       }
     }
@@ -483,7 +572,6 @@ function cmdInit(args) {
     process.exit(1);
   }
 
-  // Duplicate path check
   const normalResolved = normalPath(resolvedPath);
   const existingByPath = Object.entries(manifest.targets)
     .find(([, cfg]) => normalPath(resolve(cfg.path)) === normalResolved);
@@ -492,7 +580,6 @@ function cmdInit(args) {
     process.exit(1);
   }
 
-  // Parse optional flags
   const scope = getArg(args, '--scope') || 'all';
   if (scope !== 'all' && scope !== 'shared-only') {
     console.error(`Error: --scope must be 'all' or 'shared-only' (got '${scope}').`);
@@ -518,7 +605,12 @@ function cmdInit(args) {
   if (description) console.log(`   Description: ${description}`);
   if (workspace) console.log(`   Workspace: ${workspace}`);
   console.log(`   Scope: ${scope}`);
-  console.log(`\nNext: node ~/.claude/scripts/trine-sync.mjs sync --target ${name} --include-recommended`);
+
+  if (scope === 'all') {
+    console.log(`\nNext: node ~/.claude/scripts/trine-sync.mjs sync --target ${name} --include-recommended`);
+  } else {
+    console.log(`\n   scope: shared-only → global components already available, no project sync needed.`);
+  }
 }
 
 function cmdList(args) {
@@ -532,7 +624,6 @@ function cmdList(args) {
     process.exit(1);
   }
 
-  // Group targets by workspace
   const groups = {};
   const ungrouped = [];
 
@@ -557,9 +648,8 @@ function cmdList(args) {
       const exists = existsSync(resolve(config.path));
       const mark = exists ? '✓' : '✗';
       const missing = exists ? '' : ' [missing]';
-      const desc = config.description ? `  ${config.description}` : '';
-      console.log(`  ${mark} ${name.padEnd(14)} ${normalPath(config.path)}${missing}`);
-      if (desc) console.log(`  ${''.padEnd(16)}${desc}  [scope: ${config.scope || 'all'}]`);
+      const scopeLabel = config.scope === 'shared-only' ? ' (global-only)' : '';
+      console.log(`  ${mark} ${name.padEnd(14)} ${normalPath(config.path)}${missing}${scopeLabel}`);
     }
     console.log('');
   }
@@ -627,20 +717,24 @@ function main() {
       cmdRemove(args);
       break;
     default:
-      console.log(`Trine Sync Engine v1.2.0
+      console.log(`Trine Sync Engine v1.4.0 (Global Deployment Model)
 
 Usage: node ~/.claude/scripts/trine-sync.mjs <command>
 
 Commands:
   sync [--target <name>] [--include-recommended] [--dry-run]
-                            Deploy trine source → projects
-                            Override files: auto-updated if not customized
-  status [--quiet]          Check hash sync status (exit 2 = out of sync)
-  diff <target>             Show differences between source and project
+                            Deploy: global → ~/.claude/, templates → projects
+  status [--quiet]          Check sync status (exit 2 = out of sync)
+  diff [<target>]           Show differences (no target = global diff)
   list [--workspace <key>]  List all registered targets
   init <path> --name <name> [--scope all|shared-only] [--description "..."] [--workspace <key>]
                             Register a new project
   remove <name>             Unregister a project
+
+Deployment:
+  Global (all projects):  rules, agents, skills, commands, prompts → ~/.claude/
+  Project (scope: all):   templates → .specify/templates/
+  Reference only:         docs, shared-docs → ~/.claude/trine/ (not deployed)
 
 Source: ${normalPath(TRINE_ROOT)}
 Manifest: ${normalPath(MANIFEST_PATH)}`);

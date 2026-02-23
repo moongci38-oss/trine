@@ -7,8 +7,6 @@
 
 ```
 docs/
-├── trine/            ← trine-sync 관리 (개발 프로젝트만). 수동 편집 금지
-├── shared/           ← trine-sync shared-docs 배포. 수동 편집 금지
 ├── guides/           ← 셋업 가이드, 사용법, 튜토리얼
 ├── tech/             ← 프로젝트 고유 기술 문서
 ├── planning/
@@ -35,12 +33,12 @@ docs/
 | `assets/` | 비텍스트 파일 | 스크린샷, 다이어그램 |
 | `_archive/` | 비활성 문서 (삭제 대신 보관) | 레거시, 1회성 리포트 |
 
-## 자동 관리 영역 (수동 편집 금지)
+## 전역 문서 (프로젝트에 배포하지 않음)
 
-- `docs/trine/` — trine-sync가 `~/.claude/trine/docs/`에서 배포
-- `docs/shared/` — trine-sync가 `~/.claude/trine/shared-docs/`에서 배포
+v1.4.0부터 아래 문서는 `~/.claude/trine/`에서 직접 참조한다 (프로젝트에 복사 안 함):
 
-이 폴더의 파일을 수정하려면 전역 소스를 편집한 후 `trine-sync sync`를 실행한다.
+- `~/.claude/trine/docs/` — Trine 아키텍처, 온보딩 가이드
+- `~/.claude/trine/shared-docs/` — 범용 기술 참고 문서
 
 ## 문서 생성 규칙
 

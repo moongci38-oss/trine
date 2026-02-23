@@ -9,14 +9,14 @@
  * This single command does everything:
  *   1. Verify prerequisites (Node.js 18+, ~/.claude/ exists)
  *   2. Install scripts → ~/.claude/scripts/
- *   3. Install global rules → ~/.claude/rules/
+ *   3. Install global components → ~/.claude/ (rules, agents, skills, commands, prompts)
  *   4. Install dependencies (Agent SDK, Agent Teams, tmux)
  *   5. Detect platform & configure workspaces → manifest.json
  *   6. Auto-discover Claude Code projects in workspaces
  *   7. Run first sync (trine-sync --include-recommended)
  *
  * Flags:
- *   --update          Only update scripts + global-rules + deps (skip manifest/discover/sync)
+ *   --update          Only update scripts + global-components + deps (skip manifest/discover/sync)
  *   --skip-discover   Skip project auto-discovery (steps 6-7)
  *   --skip-deps       Skip dependency installation (step 4)
  *
@@ -179,30 +179,82 @@ function installScripts() {
 }
 
 // ---------------------------------------------------------------------------
-// [3/7] Install Global Rules
+// [3/7] Install Global Components
 // ---------------------------------------------------------------------------
 
-function installGlobalRules(forceOverwrite = false) {
-  console.log('\n[3/7] Install Rules → ~/.claude/rules/');
-  ensureDir(RULES_DIR);
+function copyDirContents(srcDir, dstDir, forceOverwrite) {
+  ensureDir(dstDir);
+  let copied = 0, upToDate = 0;
 
-  if (!existsSync(SRC_GLOBAL_RULES)) {
-    console.log('  (no global-rules/ found, skipping)');
-    return;
-  }
+  for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = join(srcDir, entry.name);
+    const dstPath = join(dstDir, entry.name);
 
-  const ruleFiles = readdirSync(SRC_GLOBAL_RULES).filter(f => f.endsWith('.md'));
-  for (const file of ruleFiles) {
-    const src = join(SRC_GLOBAL_RULES, file);
-    const dst = join(RULES_DIR, file);
-
-    if (existsSync(dst) && !forceOverwrite) {
-      const srcContent = readFileSync(src, 'utf8');
-      const dstContent = readFileSync(dst, 'utf8');
-      if (srcContent === dstContent) { skipFile(file, 'up to date'); continue; }
+    if (entry.isDirectory()) {
+      const sub = copyDirContents(srcPath, dstPath, forceOverwrite);
+      copied += sub.copied;
+      upToDate += sub.upToDate;
+    } else {
+      if (existsSync(dstPath) && !forceOverwrite) {
+        const srcContent = readFileSync(srcPath, 'utf8');
+        const dstContent = readFileSync(dstPath, 'utf8');
+        if (srcContent === dstContent) { upToDate++; continue; }
+      }
+      copyFileSync(srcPath, dstPath);
+      copied++;
     }
-    copyFile(src, dst, file);
   }
+
+  return { copied, upToDate };
+}
+
+function installGlobalComponents(forceOverwrite = false) {
+  console.log('\n[3/7] Install Global Components → ~/.claude/');
+
+  const GLOBAL_SOURCES = [
+    { src: SRC_GLOBAL_RULES, dst: RULES_DIR, label: 'rules (global)' },
+    { src: join(TRINE_ROOT, 'rules'), dst: RULES_DIR, label: 'rules (trine)' },
+    { src: join(TRINE_ROOT, 'agents'), dst: join(CLAUDE_DIR, 'agents'), label: 'agents' },
+    { src: join(TRINE_ROOT, 'skills'), dst: join(CLAUDE_DIR, 'skills'), label: 'skills' },
+    { src: join(TRINE_ROOT, 'commands'), dst: join(CLAUDE_DIR, 'commands'), label: 'commands' },
+    { src: join(TRINE_ROOT, 'prompts'), dst: join(CLAUDE_DIR, 'prompts'), label: 'prompts' },
+    { src: join(TRINE_ROOT, 'recommended', 'skills'), dst: join(CLAUDE_DIR, 'skills'), label: 'recommended/skills' },
+    { src: join(TRINE_ROOT, 'recommended', 'commands'), dst: join(CLAUDE_DIR, 'commands'), label: 'recommended/commands' },
+    { src: join(TRINE_ROOT, 'recommended', 'prompts'), dst: join(CLAUDE_DIR, 'prompts'), label: 'recommended/prompts' },
+  ];
+
+  let totalCopied = 0;
+  let totalUpToDate = 0;
+
+  for (const cat of GLOBAL_SOURCES) {
+    if (!existsSync(cat.src)) continue;
+    ensureDir(cat.dst);
+
+    const entries = readdirSync(cat.src);
+    for (const entry of entries) {
+      const srcPath = join(cat.src, entry);
+      const dstPath = join(cat.dst, entry);
+
+      if (isDirectory(srcPath)) {
+        const result = copyDirContents(srcPath, dstPath, forceOverwrite);
+        totalCopied += result.copied;
+        totalUpToDate += result.upToDate;
+        if (result.copied > 0) console.log(`  + ${cat.label}/${entry}/ (${result.copied} files)`);
+        else skipFile(`${cat.label}/${entry}/`, 'up to date');
+      } else {
+        if (existsSync(dstPath) && !forceOverwrite) {
+          const srcContent = readFileSync(srcPath, 'utf8');
+          const dstContent = readFileSync(dstPath, 'utf8');
+          if (srcContent === dstContent) { totalUpToDate++; skipFile(`${cat.label}/${entry}`, 'up to date'); continue; }
+        }
+        copyFileSync(srcPath, dstPath);
+        console.log(`  + ${cat.label}/${entry}`);
+        totalCopied++;
+      }
+    }
+  }
+
+  console.log(`  → ${totalCopied} copied, ${totalUpToDate} up-to-date`);
 }
 
 // ---------------------------------------------------------------------------
@@ -550,7 +602,7 @@ async function main() {
   // Steps 1-3: Always run
   checkPrerequisites();
   installScripts();
-  installGlobalRules(isUpdate);
+  installGlobalComponents(isUpdate);
 
   // Step 4: Dependencies (runs in both normal and update mode)
   if (!skipDeps) {

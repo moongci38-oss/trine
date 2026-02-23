@@ -1,7 +1,7 @@
 # Trine 팀 온보딩 가이드
 
 > Trine 개발 워크플로우를 팀원에게 배포하기 위한 종합 가이드.
-> 이 문서는 `trine-sync`를 통해 각 프로젝트의 `docs/trine/`에 자동 배포됩니다.
+> 이 문서는 `~/.claude/trine/docs/`에서 직접 참조합니다.
 
 ---
 
@@ -18,18 +18,34 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 | **프로젝트 등록** | `manifest.json` — 개인별 프로젝트 경로와 scope 관리 |
 | **Override 추적** | `trine-sync-state.json` — 프로젝트별 커스터마이징 자동 감지 |
 
-### Trine이 프로젝트에 배포하는 것
+### Trine이 배포하는 것
 
-| 카테고리 | 소스 경로 | 프로젝트 배포 경로 | 설명 |
-|---------|----------|------------------|------|
-| rules | `trine/rules/` | `.claude/rules/` | Claude Code 규칙 (워크플로우, 세션 상태 등) |
-| prompts | `trine/prompts/` | `.claude/prompts/` | AI 프롬프트 (파이프라인 등) |
-| docs | `trine/docs/` | `docs/trine/` | 아키텍처 문서, 이 가이드 포함 |
-| templates | `trine/templates/` | `.specify/templates/` | Spec, Plan, Task, Walkthrough 템플릿 |
-| agents | `trine/agents/` | `.claude/agents/` | 커스텀 에이전트 (spec-writer, code-reviewer 등) |
-| skills | `trine/skills/` | `.claude/skills/` | 커스텀 스킬 (spec-compliance-checker 등) |
-| commands | `trine/commands/` | `.claude/commands/` | 슬래시 커맨드 (/trine, /trine-sync 등) |
-| shared-docs | `trine/shared-docs/` | `docs/shared/` | 팀 공유 문서 (모든 프로젝트에 배포) |
+v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~/.claude/`에 전역 배포하여 모든 프로젝트에서 자동 로드된다.
+
+#### 전역 배포 (→ `~/.claude/`)
+
+| 카테고리 | 소스 경로 | 배포 경로 | 설명 |
+|---------|----------|----------|------|
+| rules | `trine/global-rules/` + `trine/rules/` | `~/.claude/rules/` | 전역 규칙 + Trine 규칙 |
+| agents | `trine/agents/` | `~/.claude/agents/` | 커스텀 에이전트 (spec-writer, code-reviewer 등) |
+| skills | `trine/skills/` | `~/.claude/skills/` | 커스텀 스킬 (spec-compliance-checker 등) |
+| commands | `trine/commands/` | `~/.claude/commands/` | 슬래시 커맨드 (/trine, /trine-sync 등) |
+| prompts | `trine/prompts/` | `~/.claude/prompts/` | AI 프롬프트 (파이프라인 등) |
+| recommended/* | `trine/recommended/` | `~/.claude/{skills,commands,prompts}/` | 추천 스킬, 커맨드, 프롬프트 |
+
+#### 프로젝트별 배포 (→ 프로젝트 내부)
+
+| 카테고리 | 소스 경로 | 배포 경로 | 설명 |
+|---------|----------|----------|------|
+| templates | `trine/templates/` | `.specify/templates/` | Spec, Plan, Task 템플릿 (scope: all만) |
+| recommended/hooks | `trine/recommended/hooks/` | `.claude/hooks/` | 추천 hooks (프로젝트별 설정 의존) |
+
+#### 배포 중단 (소스에서 직접 참조)
+
+| 카테고리 | 이전 배포 경로 | 현재 참조 경로 |
+|---------|--------------|-------------|
+| docs | `docs/trine/` | `~/.claude/trine/docs/` |
+| shared-docs | `docs/shared/` | `~/.claude/trine/shared-docs/` |
 
 ---
 
@@ -45,7 +61,7 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 ├── manifest.json                   ← 개인 설정 (git 추적 안 됨)
 │
 ├── scripts/                        ← 실행 스크립트 (setup이 ~/.claude/scripts/에 복사)
-│   ├── trine-sync.mjs              ← 동기화 엔진 v1.2.0
+│   ├── trine-sync.mjs              ← 동기화 엔진 v1.4.0
 │   ├── session-state.mjs           ← 세션 상태 관리 CLI
 │   └── setup.mjs                   ← 부트스트랩 스크립트
 │
@@ -54,7 +70,7 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 │   ├── plan-mode.md                ← Plan mode What vs How 분리
 │   └── docs-structure.md           ← docs/ 통일 폴더 구조
 │
-├── rules/                          ← Trine 규칙 → 프로젝트 .claude/rules/에 배포
+├── rules/                          ← Trine 규칙 → ~/.claude/rules/에 전역 배포
 │   ├── trine-workflow.md           ← SDD 파이프라인 워크플로우
 │   ├── trine-session-state.md      ← 세션 상태 관리 규칙
 │   ├── trine-context-engineering.md ← 컨텍스트 엔지니어링
@@ -63,16 +79,16 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 │   ├── trine-progress.md           ← 진행 상태 추적
 │   └── trine-context-management.md ← 컨텍스트 관리
 │
-├── prompts/                        ← → 프로젝트 .claude/prompts/에 배포
+├── prompts/                        ← → ~/.claude/prompts/에 전역 배포
 │   └── trine-pipeline.md           ← SDD 파이프라인 프롬프트
 │
-├── docs/                           ← → 프로젝트 docs/trine/에 배포
+├── docs/                           ← 소스에서 직접 참조 (배포 안 함)
 │   ├── trine-architecture.md       ← 아키텍처 설계 문서
 │   ├── trine-design-reference.md   ← 설계 레퍼런스
 │   ├── trine-execution-plan.md     ← 실행 계획
 │   └── trine-team-onboarding-guide.md ← 이 문서
 │
-├── templates/                      ← → 프로젝트 .specify/templates/에 배포
+├── templates/                      ← → 프로젝트 .specify/templates/에 배포 (유일한 프로젝트 배포)
 │   ├── spec-template-base.md       ← Spec 작성 템플릿
 │   ├── plan-template-base.md       ← 구현 계획 템플릿
 │   ├── task-template-base.md       ← 태스크 분배 템플릿 (Wave 기반)
@@ -80,26 +96,26 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 │   ├── progress-template.md        ← 진행 상태 템플릿
 │   └── development-plan-template.md ← 개발 계획서 템플릿
 │
-├── agents/                         ← → 프로젝트 .claude/agents/에 배포
+├── agents/                         ← → ~/.claude/agents/에 전역 배포
 │   ├── spec-writer-base.md         ← Spec 작성 에이전트
 │   ├── code-reviewer-base.md       ← 코드 리뷰 에이전트
 │   └── trine-pm-updater.md         ← PM 업데이트 에이전트
 │
-├── skills/                         ← → 프로젝트 .claude/skills/에 배포
+├── skills/                         ← → ~/.claude/skills/에 전역 배포
 │   ├── spec-compliance-checker/    ← Spec 준수 검사
 │   └── inspection-checklist/       ← 검수 체크리스트
 │
-├── commands/                       ← → 프로젝트 .claude/commands/에 배포
+├── commands/                       ← → ~/.claude/commands/에 전역 배포
 │   ├── trine.md                    ← /trine 커맨드
 │   ├── trine-sync.md               ← /trine-sync 커맨드
 │   ├── trine-status.md             ← /trine-status 커맨드
 │   └── trine-resume.md             ← /trine-resume 커맨드
 │
-├── shared-docs/                    ← → 프로젝트 docs/shared/에 배포 (전 프로젝트)
+├── shared-docs/                    ← 소스에서 직접 참조 (배포 안 함)
 │   ├── setup-reports/              ← 초기 셋업 리포트
 │   └── tech/                       ← 기술 참고 문서
 │
-└── recommended/                    ← 첫 배포 시만 복사 (이후 스킵)
+└── recommended/                    ← → ~/.claude/에 전역 배포 (기존 파일 스킵)
     ├── prompts/                    ← 추천 프롬프트 (게이트)
     ├── commands/                   ← 추천 커맨드 (보안/UI 체크)
     ├── hooks/                      ← 추천 hooks (세션 컨텍스트 등)
@@ -120,12 +136,14 @@ Trine은 **SDD(Spec-Driven Development) + DDD(Domain-Driven Design) + TDD(Test-D
 | 도구 | 배포 대상 | 배포 위치 | 실행 시점 |
 |------|----------|----------|---------|
 | `setup.mjs` | scripts (2개) | `~/.claude/scripts/` | clone 직후, 업데이트 시 |
-| `setup.mjs` | global-rules (3개) | `~/.claude/rules/` | clone 직후, 업데이트 시 |
+| `setup.mjs` | 전역 컴포넌트 (rules, agents, skills, commands, prompts + recommended) | `~/.claude/` | clone 직후, 업데이트 시 |
 | `setup.mjs` | 의존성 (Agent SDK, Agent Teams, tmux) | 설치/확인 | clone 직후, 업데이트 시 |
 | `setup.mjs` | manifest.example.json | `manifest.json` 생성 | 최초 1회 (인터랙티브) |
-| `trine-sync` | Core (rules, prompts, docs, templates, agents, skills, commands) | 프로젝트 내부 | 동기화 시 |
-| `trine-sync` | shared-docs | 프로젝트 `docs/shared/` | 동기화 시 |
-| `trine-sync` | recommended | 프로젝트 내부 | 첫 배포 시만 |
+| `trine-sync` | 전역 컴포넌트 (위와 동일) | `~/.claude/` | 동기화 시 |
+| `trine-sync` | templates | 프로젝트 `.specify/templates/` | 동기화 시 (scope: all만) |
+| `trine-sync` | recommended/hooks | 프로젝트 `.claude/hooks/` | 동기화 시 (기존 파일 스킵) |
+
+> **v1.4.0 변경**: docs, shared-docs는 더 이상 프로젝트에 배포하지 않음. `~/.claude/trine/`에서 직접 참조.
 
 ---
 
@@ -189,10 +207,12 @@ node "$HOME\.claude\trine\scripts\setup.mjs"
   + trine-sync.mjs
   + session-state.mjs
 
-[3/7] Install Rules → ~/.claude/rules/
-  + docs-structure.md
-  + opus-4-6-best-practices.md
-  + plan-mode.md
+[3/7] Install Global Components → ~/.claude/
+  rules/ ... 10 files (3 global + 7 trine)
+  agents/ ... 3 files
+  skills/ ... 9 dirs (2 trine + 7 recommended)
+  commands/ ... 7 files (4 trine + 3 recommended)
+  prompts/ ... 6 files (1 trine + 5 recommended)
 
 [4/7] Dependencies
   Agent SDK ... OK (installed)
@@ -259,12 +279,13 @@ node ~/.claude/scripts/trine-sync.mjs init /path/to/project \
 
 **Scope 옵션:**
 
-| Scope | Core 배포 | Shared Docs 배포 | Recommended 배포 |
-|-------|:---------:|:----------------:|:----------------:|
-| `all` | O | O | O (옵션) |
-| `shared-only` | X | O | X |
+| Scope | 전역 배포 | 프로젝트 Templates | 프로젝트 Hooks |
+|-------|:---------:|:-----------------:|:-------------:|
+| `all` | 자동 (scope 무관) | O | O (옵션) |
+| `shared-only` | 자동 (scope 무관) | X | X |
 
 비개발 워크스페이스(business 등)는 `shared-only` scope로 등록.
+전역 컴포넌트는 scope와 무관하게 모든 프로젝트에서 자동 로드된다.
 
 ---
 
@@ -286,7 +307,7 @@ node ~/.claude/scripts/trine-sync.mjs sync
 
 **`--update` 모드 동작:**
 - `scripts/` → `~/.claude/scripts/` 덮어쓰기
-- `global-rules/` → `~/.claude/rules/` 덮어쓰기
+- 전역 컴포넌트 (`rules/`, `agents/`, `skills/`, `commands/`, `prompts/` + recommended) → `~/.claude/` 덮어쓰기
 - 의존성 설치/확인 (Agent SDK, Agent Teams, tmux)
 - `manifest.json` → 건드리지 않음 (개인 설정 보존)
 
@@ -361,7 +382,7 @@ node ~/.claude/scripts/session-state.mjs clean
 # 초기 셋업 (7단계 전체 실행)
 node ~/.claude/trine/scripts/setup.mjs
 
-# 업데이트 (scripts + global-rules + 의존성만, manifest 유지)
+# 업데이트 (scripts + 전역 컴포넌트 + 의존성, manifest 유지)
 node ~/.claude/trine/scripts/setup.mjs --update
 
 # 의존성 설치 건너뛰기
@@ -377,13 +398,13 @@ node ~/.claude/trine/scripts/setup.mjs --wsl-path "Z:/ws" --win-path "E:/ws"    
 
 ---
 
-## 6. Override Tracking (v1.2.0)
+## 6. Override Tracking (v1.2.0 → v1.4.0)
 
 ### 6.1 개요
 
-templates, agents, skills 3개 카테고리는 **프로젝트별 커스터마이징을 지원**한다.
+v1.4.0부터 **templates만 Override Tracking 대상**이다 (agents, skills, commands, prompts는 전역 배포로 전환).
 
-프로젝트에서 trine이 배포한 파일을 수정하면, 이후 전역 소스가 변경되더라도 프로젝트의 커스텀 버전이 유지된다. 반대로, 수정하지 않은 파일은 전역 변경이 자동으로 반영된다.
+프로젝트에서 trine이 배포한 templates 파일을 수정하면, 이후 전역 소스가 변경되더라도 프로젝트의 커스텀 버전이 유지된다. 반대로, 수정하지 않은 파일은 전역 변경이 자동으로 반영된다.
 
 ### 6.2 동작 방식
 
@@ -402,10 +423,9 @@ templates, agents, skills 3개 카테고리는 **프로젝트별 커스터마이
 ### 6.3 출력 예시
 
 ```
-📦 Syncing → portfolio
+📦 Syncing → portfolio (templates)
   ↻ .specify/templates/spec-template-base.md (auto)
   ⏭ .specify/templates/plan-template-base.md (project override)
-  + .claude/rules/trine-new-rule.md
 ```
 
 | 아이콘 | 의미 |
@@ -509,21 +529,55 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 
 ---
 
-## 8. 전역 규칙 (Global Rules)
+## 8. 전역 컴포넌트 (Global Components)
 
-`setup.mjs`가 `~/.claude/rules/`에 복사하는 3개 파일. 모든 Claude Code 세션에 적용된다.
+v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 컴포넌트. 모든 Claude Code 세션에 자동 적용된다.
+
+### 8.1 전역 Rules (10개)
+
+| 파일 | 출처 | 내용 |
+|------|------|------|
+| `opus-4-6-best-practices.md` | global-rules | 행동/지식/안전/효율 4축 원칙 |
+| `plan-mode.md` | global-rules | Plan mode What vs How 분리 |
+| `docs-structure.md` | global-rules | docs/ 통일 폴더 구조 |
+| `trine-workflow.md` | rules | SDD 파이프라인 워크플로우 |
+| `trine-session-state.md` | rules | 세션 상태 관리 규칙 |
+| `trine-context-engineering.md` | rules | 컨텍스트 엔지니어링 |
+| `trine-requirements-analysis.md` | rules | 요구사항 분석 |
+| `trine-walkthrough.md` | rules | 구현 워크스루 규칙 |
+| `trine-progress.md` | rules | 진행 상태 추적 |
+| `trine-context-management.md` | rules | 컨텍스트 관리 |
+
+### 8.2 전역 Agents (3개)
 
 | 파일 | 내용 |
 |------|------|
-| `opus-4-6-best-practices.md` | 행동(적극적) / 지식(신중) / 안전(위험 기반) / 효율 4축 원칙 |
-| `plan-mode.md` | Plan mode에서 What만 작성하고 How는 구현 단계에서 처리 |
-| `docs-structure.md` | docs/ 통일 폴더 구조 (guides, tech, planning, reviews 등) |
+| `spec-writer-base.md` | Spec 작성 에이전트 |
+| `code-reviewer-base.md` | 코드 리뷰 에이전트 |
+| `trine-pm-updater.md` | PM 업데이트 에이전트 |
+
+### 8.3 전역 Commands (7개)
+
+| 파일 | 내용 |
+|------|------|
+| `trine.md` | /trine 파이프라인 실행 |
+| `trine-sync.md` | /trine-sync 동기화 |
+| `trine-status.md` | /trine-status 상태 확인 |
+| `trine-resume.md` | /trine-resume 세션 재개 |
+| `trine-check-security.md` | /trine-check-security 보안 점검 (recommended) |
+| `trine-check-ui.md` | /trine-check-ui UI 품질 점검 (recommended) |
+| `trine-generate-image.md` | /trine-generate-image 이미지 생성 (recommended) |
+
+### 8.4 전역 Skills, Prompts
+
+- **Skills**: `spec-compliance-checker`, `inspection-checklist` + recommended 7개
+- **Prompts**: `trine-pipeline.md` + recommended 5개 (게이트 프롬프트)
 
 ---
 
 ## 9. Recommended 구성
 
-첫 동기화 시 `--include-recommended`로 배포. 이후에는 프로젝트에 이미 존재하면 스킵.
+v1.4.0부터 `~/.claude/`에 전역 배포. 이미 존재하는 파일은 스킵. hooks만 프로젝트별 배포.
 
 ### 9.1 Recommended Prompts
 
@@ -567,7 +621,19 @@ node ~/.claude/scripts/trine-sync.mjs sync --target my-project
 
 ## 10. 작업 이력
 
-### 10.1 v1.3.0 변경사항 (2026-02-23)
+### 10.1 v1.4.0 변경사항 (2026-02-23)
+
+| 변경 | 설명 |
+|------|------|
+| 전역 배포 모델 | rules/agents/skills/commands/prompts를 `~/.claude/`에 전역 배포 (프로젝트 복사 제거) |
+| 프로젝트 배포 축소 | templates만 프로젝트에 배포 (scope: all) |
+| docs/shared-docs 배포 중단 | `~/.claude/trine/`에서 직접 참조 |
+| Override Tracking 축소 | templates만 대상 (agents/skills는 전역으로 이동) |
+| 크로스 프로젝트 기술 문서 전역화 | 범용 기술 문서를 `shared-docs/tech/`로 이동 |
+| setup.mjs Step 3 확장 | "Install Rules" → "Install Global Components" |
+| ~98개 복사본 제거 | 3개 프로젝트에서 중복 파일 삭제 |
+
+### 10.2 v1.3.0 변경사항 (2026-02-23)
 
 | 변경 | 설명 |
 |------|------|
