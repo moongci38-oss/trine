@@ -50,6 +50,8 @@ const MANIFEST_EXAMPLE = join(TRINE_ROOT, 'manifest.example.json');
 const MANIFEST_PATH = join(TRINE_ROOT, 'manifest.json');
 const TRINE_SYNC_PATH = join(SCRIPTS_DIR, 'trine-sync.mjs');
 
+// Note: process.platform returns 'win32' for ALL Windows (32-bit and 64-bit alike).
+// This is a Node.js/Win32 API naming convention, not an architecture indicator.
 const PLATFORM = platform();
 
 // ---------------------------------------------------------------------------
@@ -326,6 +328,9 @@ async function discoverAndRegister() {
 
   if (discovered.length === 0) {
     console.log('  (no new projects found)');
+    console.log('');
+    console.log('  .claude/ 폴더가 있는 프로젝트만 자동 발견됩니다.');
+    console.log('  수동 등록: node ~/.claude/scripts/trine-sync.mjs init <path> --name <name>');
     return;
   }
 
