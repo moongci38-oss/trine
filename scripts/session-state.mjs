@@ -241,6 +241,51 @@ function createDefaultState(name, workSize = 'standard') {
 }
 
 // ---------------------------------------------------------------------------
+// Auto-cleanup on init
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove completed sessions (currentPhase === 'session_complete').
+ * Called at init time so stale sessions don't accumulate.
+ */
+function autoCleanCompleted() {
+  const names = listSessionFiles();
+  const removed = [];
+  for (const n of names) {
+    try {
+      const s = JSON.parse(readFileSync(sessionFilePath(n), 'utf8'));
+      if (s.currentPhase === 'session_complete') {
+        unlinkSync(sessionFilePath(n));
+        removed.push(n);
+      }
+    } catch { /* skip unreadable */ }
+  }
+  if (removed.length > 0) {
+    console.error(`[session-state] Auto-cleaned ${removed.length} completed session(s): ${removed.join(', ')}`);
+  }
+}
+
+const EVENT_LOG_MAX_LINES = 500;
+const EVENT_LOG_KEEP_LINES = 200;
+
+/**
+ * Rotate event-log.jsonl when it exceeds EVENT_LOG_MAX_LINES.
+ * Keeps only the most recent EVENT_LOG_KEEP_LINES lines.
+ */
+function rotateEventLog() {
+  const logPath = join(STATE_DIR, 'event-log.jsonl');
+  if (!existsSync(logPath)) return;
+  try {
+    const content = readFileSync(logPath, 'utf8');
+    const lines = content.split('\n').filter(l => l.trim() !== '');
+    if (lines.length <= EVENT_LOG_MAX_LINES) return;
+    const kept = lines.slice(-EVENT_LOG_KEEP_LINES);
+    writeFileSync(logPath, kept.join('\n') + '\n', 'utf8');
+    console.error(`[session-state] Rotated event-log.jsonl: ${lines.length} → ${kept.length} lines`);
+  } catch { /* skip on error */ }
+}
+
+// ---------------------------------------------------------------------------
 // History rotation
 // ---------------------------------------------------------------------------
 
@@ -300,6 +345,8 @@ function parseArgs(argv) {
 
 function cmdInit({ args }) {
   migrateLegacy();
+  autoCleanCompleted();
+  rotateEventLog();
   const name = args.name || args.n;
   if (!name) die('Usage: init --name <session-name> [--work-size <size>]');
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) die('Session name must be alphanumeric, hyphens, or underscores.');

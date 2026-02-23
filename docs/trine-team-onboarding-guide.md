@@ -372,9 +372,11 @@ node ~/.claude/scripts/session-state.mjs rename old-name new-name
 # 체크포인트 저장
 node ~/.claude/scripts/session-state.mjs checkpoint phase2 --session my-feature
 
-# 완료 세션 정리
+# 완료 세션 정리 (수동)
 node ~/.claude/scripts/session-state.mjs clean
 ```
+
+> **자동 정리**: `init` 실행 시 완료된 세션(`session_complete`)이 자동 삭제되고, `event-log.jsonl`이 500줄 초과 시 최근 200줄로 회전된다.
 
 ### 5.3 setup.mjs
 
