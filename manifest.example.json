@@ -1,0 +1,98 @@
+{
+  "version": "1.1.0",
+  "name": "trine",
+  "description": "SDD + DDD + TDD 3축 융합 AI-Native 개발 시스템",
+  "workspaces": {
+    "wsl": {
+      "basePath": "{WSL_WORKSPACE}",
+      "platform": "wsl",
+      "description": "Linux/WSL 기반 프로젝트 (Next.js, NestJS 등)"
+    },
+    "windows": {
+      "basePath": "{WIN_WORKSPACE}",
+      "platform": "windows",
+      "description": "Windows 기반 프로젝트 (Unity, C# 등)"
+    },
+    "business": {
+      "basePath": "{BUSINESS_PATH}",
+      "platform": "wsl",
+      "description": "비즈니스/기획 문서 워크스페이스 (비개발, shared-only)"
+    }
+  },
+  "targets": {},
+  "core": {
+    "rules": [
+      "trine-workflow.md",
+      "trine-session-state.md",
+      "trine-context-engineering.md",
+      "trine-requirements-analysis.md",
+      "trine-walkthrough.md",
+      "trine-progress.md",
+      "trine-context-management.md"
+    ],
+    "prompts": ["trine-pipeline.md"],
+    "docs": ["trine-architecture.md"],
+    "templates": [
+      "spec-template-base.md",
+      "plan-template-base.md",
+      "task-template-base.md",
+      "walkthrough-template-base.md",
+      "progress-template.md",
+      "development-plan-template.md"
+    ],
+    "agents": [
+      "spec-writer-base.md",
+      "code-reviewer-base.md",
+      "trine-pm-updater.md"
+    ],
+    "skills": [
+      "spec-compliance-checker",
+      "inspection-checklist"
+    ],
+    "commands": [
+      "trine.md",
+      "trine-sync.md",
+      "trine-status.md",
+      "trine-resume.md"
+    ]
+  },
+  "recommended": {
+    "prompts": [
+      "requirements-analysis.md",
+      "code-review-gate.md",
+      "security-gate.md",
+      "ui-quality-gate.md",
+      "resume-session.md"
+    ],
+    "commands": [
+      "trine-check-security.md",
+      "trine-check-ui.md",
+      "trine-generate-image.md"
+    ],
+    "hooks": [
+      "session-context.sh",
+      "pre-phase-transition.sh",
+      "subagent-verify.sh"
+    ],
+    "skills": [
+      "writing-plans",
+      "concise-planning",
+      "kaizen",
+      "frontend-design"
+    ]
+  },
+  "toolchain": {
+    "tier1": {
+      "description": "파이프라인 동작에 직접 필요",
+      "items": ["memory-mcp", "sequential-thinking-mcp", "context7-mcp", "gh-cli"]
+    },
+    "tier2": {
+      "description": "검증 게이트/전문 작업에 사용",
+      "items": ["sharp-mcp", "lighthouse-mcp", "a11y-mcp", "nanobanana-mcp", "brave-search-mcp", "playwright-mcp"]
+    }
+  },
+  "sync": {
+    "overridePolicy": "skip",
+    "hashAlgorithm": "sha256"
+  }
+}

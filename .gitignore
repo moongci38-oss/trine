@@ -1,0 +1,9 @@
+# Personal configuration (per-user paths)
+manifest.json
+
+# Temp files
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

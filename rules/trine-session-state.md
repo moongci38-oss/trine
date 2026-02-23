@@ -1,0 +1,101 @@
+# Trine Session State Rules
+
+> 전역 규칙. 프로젝트별 Phase 정의는 각 프로젝트의 `.claude/rules/`에서 override한다.
+
+## 멀티세션 구조
+
+```
+<project>/.claude/state/
+└── sessions/
+    ├── feature-auth.json    ← 세션별 독립 파일
+    └── seo-audit.json
+```
+
+- 세션 이름(파일명) = 사람이 읽는 라벨 (rename 안전)
+- `sessionId`(UUID) = 내부 불변 식별자
+- 한 프로젝트에서 여러 세션 동시 운영 가능
+
+## 세션 시작 프로토콜
+
+1. `.claude/state/sessions/` 디렉토리에서 **신규/재개** 판단
+2. 존재 → 마지막 체크포인트에서 재개
+3. 미존재 → `node ~/.claude/scripts/session-state.mjs init --name <name>` 실행
+
+## 스크립트 호출
+
+```bash
+node ~/.claude/scripts/session-state.mjs init --name <name>     # 세션 생성
+node ~/.claude/scripts/session-state.mjs list                    # 세션 목록
+node ~/.claude/scripts/session-state.mjs rename <old> <new>      # 이름 변경
+node ~/.claude/scripts/session-state.mjs clean                   # 완료 세션 정리
+node ~/.claude/scripts/session-state.mjs status --session <name> # 상태 확인
+node ~/.claude/scripts/session-state.mjs checkpoint <phase> --session <name>
+```
+
+## --session 자동 선택
+
+- 세션 1개 → `--session` 생략 가능 (자동 선택)
+- 2개 이상 → 반드시 `--session <name>` 지정
+- AI는 대화 시작 시 세션을 선택하고, 이후 모든 커맨드에 일관 전달
+
+## 체크포인트
+
+Phase 전환 시 반드시 체크포인트를 생성한다.
+
+| Phase | checkpoint state |
+|-------|-----------------|
+| Phase 1 완료 | `phase1_complete` |
+| Phase 1.5 완료 | `phase1.5_complete` |
+| Phase 2 완료 | `phase2_complete` |
+| Phase 3 완료 | `phase3_complete` |
+| Phase 4 완료 | `session_complete` |
+
+각 체크포인트에서:
+- `node ~/.claude/scripts/session-state.mjs checkpoint --phase {state}` 실행
+- WIP git commit 생성 (중간 상태 영속화)
+
+## 작업 규모 분류 (Phase 1 완료 시 결정)
+
+| 분류 | 기준 | Phase 스킵 |
+|------|------|-----------|
+| **Hotfix** | 긴급 장애, main 기반 | Phase 1.5/2 스킵 가능 |
+| **Small** | 단일 파일, 설정 변경 | Phase 1.5 스킵 가능 |
+| **Standard** | 일반 기능, 단일 도메인 | 전체 Phase 수행 |
+| **Multi-Spec** | 멀티 도메인, 대규모 | 전체 Phase + Plan/Task 필수 |
+
+## autoFix WAL (Write-Ahead Logging)
+
+자동 수정 시도 전에 먼저 카운터를 기록하고, 그 다음 수정을 실행한다.
+
+## autoFix 카운터 규칙
+
+- 자동 수정 **시도 시작 전** 즉시 카운터 증가 (Write-Ahead)
+- 세션 재개 시 기존 카운터 **이어서 사용** (리셋 금지)
+- 동일 Check 3회 연속 실패 → 자동 수정 중단 + [STOP] Human
+
+## 3-Cycle 순환 제한
+
+- Check 3 ↔ 3.5 순환 최대 **3회**
+- 초과 시: 자동 수정 전면 중단 + [STOP] Human 승인 필수
+- 조기 탈출: 2회차에서 동일 패턴 반복 시 즉시 중단
+
+## 세션 재개 규칙
+
+- `/trine-resume`으로 세션 재개 (멀티세션 시 목록에서 선택)
+- autoFix 카운터는 리셋하지 않고 이어서 사용
+- 이미 PASS된 Check는 재실행하지 않음
+- `rollbackHistory`를 확인하여 이전 롤백 사유 파악
+
+## History 크기 제한
+
+| 히스토리 | 최근 N개 유지 | 나머지 |
+|---------|:-----------:|--------|
+| `autoFixHistory` | **5개** | `autoFixArchive` (요약만) |
+| `rollbackHistory` | **3개** | `rollbackArchive` |
+| `timeoutHistory` | **3개** | `timeoutArchive` |
+| `humanOverrides` | **3개** | `overrideArchive` |
+
+## 레거시 마이그레이션
+
+기존 `session-state.json` 파일은 첫 `init` 또는 `list` 시 자동으로
+`sessions/` 디렉토리로 마이그레이션된다. 원본은 `.migrated` 확장자로 보존.
