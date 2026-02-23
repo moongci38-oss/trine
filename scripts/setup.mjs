@@ -326,11 +326,12 @@ async function configure(args) {
     }
   }
 
-  // Replace placeholders
-  if (paths.wsl) content = content.replace('{WSL_WORKSPACE}', paths.wsl);
-  if (paths.windows) content = content.replace('{WIN_WORKSPACE}', paths.windows);
-  if (paths.mac) content = content.replace('{MAC_WORKSPACE}', paths.mac);
-  if (paths.business) content = content.replace('{BUSINESS_PATH}', paths.business);
+  // Replace placeholders (escape backslashes for JSON compatibility)
+  const jsonSafe = (p) => p.replace(/\\/g, '/');
+  if (paths.wsl) content = content.replace('{WSL_WORKSPACE}', jsonSafe(paths.wsl));
+  if (paths.windows) content = content.replace('{WIN_WORKSPACE}', jsonSafe(paths.windows));
+  if (paths.mac) content = content.replace('{MAC_WORKSPACE}', jsonSafe(paths.mac));
+  if (paths.business) content = content.replace('{BUSINESS_PATH}', jsonSafe(paths.business));
 
   // Remove unused workspaces (placeholder still present)
   const manifest = JSON.parse(content);
