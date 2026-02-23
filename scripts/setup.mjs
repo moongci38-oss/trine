@@ -10,19 +10,21 @@
  *   1. Verify prerequisites (Node.js 18+, ~/.claude/ exists)
  *   2. Install scripts → ~/.claude/scripts/
  *   3. Install global rules → ~/.claude/rules/
- *   4. Detect platform & configure workspaces → manifest.json
- *   5. Auto-discover Claude Code projects in workspaces
- *   6. Run first sync (trine-sync --include-recommended)
+ *   4. Install dependencies (Agent SDK, Agent Teams env, plugins)
+ *   5. Detect platform & configure workspaces → manifest.json
+ *   6. Auto-discover Claude Code projects in workspaces
+ *   7. Run first sync (trine-sync --include-recommended)
  *
  * Flags:
- *   --update          Only update scripts + global-rules (skip manifest/discover/sync)
- *   --skip-discover   Skip project auto-discovery (steps 5-6)
+ *   --update          Only update scripts + global-rules + deps (skip manifest/discover/sync)
+ *   --skip-discover   Skip project auto-discovery (steps 6-7)
+ *   --skip-deps       Skip dependency installation (step 4)
  *
  * Non-interactive (CI/script):
  *   node setup.mjs --workspace ~/projects --business ~/biz            # Mac/Linux
  *   node setup.mjs --wsl-path "Z:/path" --win-path "E:/path"          # Windows
  *
- * Cross-platform: Windows (win32), macOS (darwin), Linux
+ * Cross-platform: Windows (win32 = all Windows incl. 64-bit), macOS (darwin), Linux
  */
 
 import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, renameSync } from 'node:fs';
@@ -30,7 +32,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { homedir, platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -43,6 +45,7 @@ const HOME = homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
 const SCRIPTS_DIR = join(CLAUDE_DIR, 'scripts');
 const RULES_DIR = join(CLAUDE_DIR, 'rules');
+const USER_SETTINGS_PATH = join(CLAUDE_DIR, 'settings.json');
 
 const SRC_SCRIPTS = join(TRINE_ROOT, 'scripts');
 const SRC_GLOBAL_RULES = join(TRINE_ROOT, 'global-rules');
@@ -53,6 +56,21 @@ const TRINE_SYNC_PATH = join(SCRIPTS_DIR, 'trine-sync.mjs');
 // Note: process.platform returns 'win32' for ALL Windows (32-bit and 64-bit alike).
 // This is a Node.js/Win32 API naming convention, not an architecture indicator.
 const PLATFORM = platform();
+
+// Plugins to auto-install (marketplace → plugin list)
+const PLUGIN_MARKETPLACES = [
+  'anthropics/knowledge-work-plugins',
+];
+const PLUGINS_TO_INSTALL = [
+  'productivity',
+  'product-management',
+  'marketing',
+  'enterprise-search',
+  'data',
+  'sales',
+  'customer-support',
+  'cowork-plugin-management',
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -97,12 +115,20 @@ function isDirectory(p) {
   try { return statSync(p).isDirectory(); } catch { return false; }
 }
 
+function runQuiet(cmd) {
+  try {
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
-// [1/6] Prerequisites
+// [1/7] Prerequisites
 // ---------------------------------------------------------------------------
 
 function checkPrerequisites() {
-  console.log('\n[1/6] Prerequisites');
+  console.log('\n[1/7] Prerequisites');
 
   const nodeVersion = process.versions.node;
   const major = parseInt(nodeVersion.split('.')[0], 10);
@@ -129,11 +155,11 @@ function checkPrerequisites() {
 }
 
 // ---------------------------------------------------------------------------
-// [2/6] Install Scripts
+// [2/7] Install Scripts
 // ---------------------------------------------------------------------------
 
 function installScripts() {
-  console.log('\n[2/6] Install Scripts → ~/.claude/scripts/');
+  console.log('\n[2/7] Install Scripts → ~/.claude/scripts/');
   ensureDir(SCRIPTS_DIR);
 
   const scriptFiles = ['trine-sync.mjs', 'session-state.mjs'];
@@ -146,11 +172,11 @@ function installScripts() {
 }
 
 // ---------------------------------------------------------------------------
-// [3/6] Install Global Rules
+// [3/7] Install Global Rules
 // ---------------------------------------------------------------------------
 
 function installGlobalRules(forceOverwrite = false) {
-  console.log('\n[3/6] Install Rules → ~/.claude/rules/');
+  console.log('\n[3/7] Install Rules → ~/.claude/rules/');
   ensureDir(RULES_DIR);
 
   if (!existsSync(SRC_GLOBAL_RULES)) {
@@ -173,11 +199,109 @@ function installGlobalRules(forceOverwrite = false) {
 }
 
 // ---------------------------------------------------------------------------
-// [4/6] Configure — Platform-aware manifest setup
+// [4/7] Dependencies — Agent SDK, Agent Teams, Plugins, tmux
+// ---------------------------------------------------------------------------
+
+function installDependencies() {
+  console.log('\n[4/7] Dependencies');
+
+  // 4a. Agent SDK
+  const agentSdkInstalled = runQuiet('npm list -g @anthropic-ai/claude-agent-sdk --depth=0');
+  if (agentSdkInstalled && agentSdkInstalled.includes('claude-agent-sdk')) {
+    console.log('  Agent SDK ... OK (installed)');
+  } else {
+    console.log('  Agent SDK ... installing');
+    try {
+      execSync('npm install -g @anthropic-ai/claude-agent-sdk', { stdio: 'inherit' });
+      console.log('  + Agent SDK installed');
+    } catch {
+      console.log('  ⚠ Agent SDK 설치 실패. 수동 설치: npm install -g @anthropic-ai/claude-agent-sdk');
+    }
+  }
+
+  // 4b. Agent Teams env var → ~/.claude/settings.json
+  let settings = {};
+  if (existsSync(USER_SETTINGS_PATH)) {
+    try { settings = JSON.parse(readFileSync(USER_SETTINGS_PATH, 'utf8')); } catch { settings = {}; }
+  }
+
+  if (settings.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1') {
+    console.log('  Agent Teams ... OK (enabled)');
+  } else {
+    if (!settings.env) settings.env = {};
+    settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1';
+    writeFileSync(USER_SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+    console.log('  + Agent Teams enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1)');
+  }
+
+  // 4c. tmux check (Agent Teams requires tmux for parallel execution)
+  if (PLATFORM !== 'win32') {
+    // Mac/Linux: check tmux directly
+    const tmuxVersion = runQuiet('tmux -V');
+    if (tmuxVersion) {
+      console.log(`  tmux ... OK (${tmuxVersion})`);
+    } else {
+      console.log('  ⚠ tmux 미설치. Agent Teams에 필요합니다.');
+      if (PLATFORM === 'darwin') {
+        console.log('    설치: brew install tmux');
+      } else {
+        console.log('    설치: sudo apt install tmux');
+      }
+    }
+  } else {
+    // Windows: tmux is used via WSL
+    const wslTmux = runQuiet('wsl -e which tmux');
+    if (wslTmux) {
+      console.log('  tmux (WSL) ... OK');
+    } else {
+      console.log('  ⚠ tmux (WSL) 미설치. Agent Teams에 필요합니다.');
+      console.log('    WSL에서 설치: sudo apt install tmux');
+    }
+  }
+
+  // 4d. Plugins — add marketplace + install plugins
+  const claudeCmd = PLATFORM === 'win32' ? 'claude.cmd' : 'claude';
+  const claudeExists = runQuiet(`${claudeCmd} --version`);
+  if (!claudeExists) {
+    console.log('  ⚠ claude CLI를 찾을 수 없어 플러그인 자동 설치를 건너뜁니다.');
+    console.log('    Claude Code 설치 후 수동 설치:');
+    for (const mp of PLUGIN_MARKETPLACES) {
+      console.log(`    claude plugin marketplace add ${mp}`);
+    }
+    for (const p of PLUGINS_TO_INSTALL) {
+      console.log(`    claude plugin install ${p}`);
+    }
+    return;
+  }
+
+  // Add marketplaces
+  for (const mp of PLUGIN_MARKETPLACES) {
+    console.log(`  Marketplace: ${mp}`);
+    try {
+      execSync(`${claudeCmd} plugin marketplace add ${mp}`, { stdio: ['pipe', 'pipe', 'pipe'] });
+      console.log(`  + ${mp} added`);
+    } catch {
+      console.log(`  - ${mp} (already added or failed)`);
+    }
+  }
+
+  // Install plugins
+  for (const p of PLUGINS_TO_INSTALL) {
+    try {
+      execSync(`${claudeCmd} plugin install ${p}`, { stdio: ['pipe', 'pipe', 'pipe'] });
+      console.log(`  + plugin: ${p} installed`);
+    } catch {
+      console.log(`  - plugin: ${p} (already installed or failed)`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// [5/7] Configure — Platform-aware manifest setup
 // ---------------------------------------------------------------------------
 
 async function configure(args) {
-  console.log('\n[4/6] Configure');
+  console.log('\n[5/7] Configure');
 
   if (existsSync(MANIFEST_PATH)) {
     console.log('  manifest.json already exists (keeping current)');
@@ -248,7 +372,7 @@ async function configure(args) {
   for (const [key, val] of Object.entries(paths)) {
     if (val && !existsSync(val)) {
       console.log(`  ⚠ ${key}: 경로가 존재하지 않습니다 → ${val}`);
-      console.log(`    프로젝트 발견(Step 5)에서 해당 워크스페이스는 건너뜁니다.`);
+      console.log(`    프로젝트 발견(Step 6)에서 해당 워크스페이스는 건너뜁니다.`);
     }
   }
 
@@ -282,11 +406,11 @@ async function configure(args) {
 }
 
 // ---------------------------------------------------------------------------
-// [5/6] Discover & Register Projects
+// [6/7] Discover & Register Projects
 // ---------------------------------------------------------------------------
 
 async function discoverAndRegister() {
-  console.log('\n[5/6] Discover & Register');
+  console.log('\n[6/7] Discover & Register');
 
   const manifest = loadManifest();
   const workspaces = manifest.workspaces || {};
@@ -379,11 +503,11 @@ async function discoverAndRegister() {
 }
 
 // ---------------------------------------------------------------------------
-// [6/6] First Sync
+// [7/7] First Sync
 // ---------------------------------------------------------------------------
 
 function firstSync() {
-  console.log('\n[6/6] First Sync');
+  console.log('\n[7/7] First Sync');
 
   if (!existsSync(TRINE_SYNC_PATH)) {
     console.error('  ERROR: trine-sync.mjs not found. Scripts installation may have failed.');
@@ -442,6 +566,7 @@ async function main() {
   const args = process.argv.slice(2);
   const isUpdate = args.includes('--update');
   const skipDiscover = args.includes('--skip-discover');
+  const skipDeps = args.includes('--skip-deps');
 
   console.log('');
   console.log('========================================');
@@ -454,22 +579,29 @@ async function main() {
   installScripts();
   installGlobalRules(isUpdate);
 
-  if (isUpdate) {
-    console.log('\n[4/6] Configure (skipped in update mode)');
-    console.log('[5/6] Discover (skipped in update mode)');
-    console.log('[6/6] Sync (skipped in update mode)');
+  // Step 4: Dependencies (runs in both normal and update mode)
+  if (!skipDeps) {
+    installDependencies();
   } else {
-    // Step 4: Configure manifest
+    console.log('\n[4/7] Dependencies (skipped via --skip-deps)');
+  }
+
+  if (isUpdate) {
+    console.log('\n[5/7] Configure (skipped in update mode)');
+    console.log('[6/7] Discover (skipped in update mode)');
+    console.log('[7/7] Sync (skipped in update mode)');
+  } else {
+    // Step 5: Configure manifest
     await configure(args);
 
-    // Step 5: Discover & register projects
+    // Step 6: Discover & register projects
     if (!skipDiscover) {
       await discoverAndRegister();
     } else {
-      console.log('\n[5/6] Discover (skipped via --skip-discover)');
+      console.log('\n[6/7] Discover (skipped via --skip-discover)');
     }
 
-    // Step 6: First sync
+    // Step 7: First sync
     firstSync();
   }
 
