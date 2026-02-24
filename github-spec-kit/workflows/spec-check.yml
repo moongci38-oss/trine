@@ -1,0 +1,247 @@
+name: SDD Spec Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  spec-validation:
+    runs-on: ubuntu-latest
+    # Skip spec check for non-feature branches and spec-maintenance branches
+    if: >-
+      ${{
+        !startsWith(github.head_ref, 'docs/') &&
+        !startsWith(github.head_ref, 'hotfix/') &&
+        !startsWith(github.head_ref, 'fix/') &&
+        !startsWith(github.head_ref, 'chore/') &&
+        !startsWith(github.head_ref, 'feature/spec-')
+      }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract spec name from branch
+        id: extract-spec
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          # feat/user-auth -> user-auth, fix/login-bug -> login-bug
+          SPEC_NAME=$(echo "$BRANCH_NAME" | sed 's/^[^/]*\///')
+          echo "spec_name=$SPEC_NAME" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Check if spec file exists
+        id: check-spec
+        run: |
+          SPEC_NAME="${{ steps.extract-spec.outputs.spec_name }}"
+
+          # 1. Exact match
+          SPEC_FILE=".specify/specs/${SPEC_NAME}.md"
+          if [ -f "$SPEC_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "spec_file=$SPEC_FILE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 2. Fuzzy match (find files containing spec name)
+          SPEC_FILES=$(find .specify/specs -type f -name "*${SPEC_NAME}*.md" 2>/dev/null || true)
+          if [ -n "$SPEC_FILES" ]; then
+            FIRST_FILE=$(echo "$SPEC_FILES" | head -n 1)
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "spec_file=$FIRST_FILE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Available specs:"
+          ls -1 .specify/specs/ 2>/dev/null || echo "No specs found"
+
+      - name: Check plan file exists
+        id: check-plan
+        if: steps.check-spec.outputs.exists == 'true'
+        run: |
+          SPEC_NAME="${{ steps.extract-spec.outputs.spec_name }}"
+
+          # Exact match
+          PLAN_FILE=".specify/plans/${SPEC_NAME}-plan.md"
+          if [ -f "$PLAN_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "plan_file=$PLAN_FILE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Fuzzy match
+          PLAN_FILES=$(find .specify/plans -type f -name "*${SPEC_NAME}*.md" 2>/dev/null || true)
+          if [ -n "$PLAN_FILES" ]; then
+            FIRST_FILE=$(echo "$PLAN_FILES" | head -n 1)
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "plan_file=$FIRST_FILE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "exists=false" >> $GITHUB_OUTPUT
+
+      - name: Validate spec requirements
+        id: validate-spec
+        if: steps.check-spec.outputs.exists == 'true'
+        run: |
+          SPEC_FILE="${{ steps.check-spec.outputs.spec_file }}"
+
+          # Requirements section (numbered + Korean/English patterns)
+          if grep -qP "## (\d+\.\s*)?(기능\s*)?요구사항|## (\d+\.\s*)?Requirements" "$SPEC_FILE"; then
+            echo "has_requirements=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_requirements=false" >> $GITHUB_OUTPUT
+          fi
+
+          # API section (conditional — optional for infra/config specs)
+          if grep -qP "## (\d+\.\s*)?API|## (\d+\.\s*)?Endpoints" "$SPEC_FILE"; then
+            echo "has_api=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_api=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Testing section (required)
+          if grep -qP "## (\d+\.\s*)?(테스트|Testing)" "$SPEC_FILE"; then
+            echo "has_testing=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_testing=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment PR with spec info
+        if: steps.check-spec.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const specFile = '${{ steps.check-spec.outputs.spec_file }}';
+            const planFile = '${{ steps.check-plan.outputs.plan_file }}';
+            const hasRequirements = '${{ steps.validate-spec.outputs.has_requirements }}' === 'true';
+            const hasApi = '${{ steps.validate-spec.outputs.has_api }}' === 'true';
+            const hasTesting = '${{ steps.validate-spec.outputs.has_testing }}' === 'true';
+            const hasPlan = '${{ steps.check-plan.outputs.exists }}' === 'true';
+
+            const marker = '## SDD Spec Check';
+
+            let body = marker + '\n\n';
+            body += '### Related Documents\n';
+            body += `- **Spec**: [\`${specFile}\`](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/blob/${process.env.GITHUB_HEAD_REF}/${specFile})\n`;
+
+            if (hasPlan) {
+              body += `- **Plan**: [\`${planFile}\`](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/blob/${process.env.GITHUB_HEAD_REF}/${planFile})\n`;
+            } else {
+              body += '- **Plan**: Not found\n';
+            }
+
+            body += '\n### Spec Validation\n';
+            body += hasRequirements ? '- [x] Requirements section found\n' : '- [ ] Requirements section missing\n';
+            body += hasApi ? '- [x] API section found\n' : '- [ ] No API section (optional for infra/config specs)\n';
+            body += hasTesting ? '- [x] Testing section found\n' : '- [ ] Testing section missing\n';
+            body += hasPlan ? '- [x] Plan document exists\n' : '- [ ] Plan document missing\n';
+
+            body += '\n### Review Checklist\n';
+            body += '- [ ] All spec requirements implemented\n';
+            body += '- [ ] Tests cover spec scenarios\n';
+            body += '- [ ] Plan document updated\n';
+            body += '- [ ] Documentation updated\n';
+
+            // Find existing comment and update (marker-based dedup)
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.startsWith(marker)
+            );
+
+            if (existing) {
+              // Preserve checked items from the existing comment
+              const checkedItems = existing.body.match(/- \[x\] .+/g) || [];
+              for (const item of checkedItems) {
+                const label = item.replace('- [x] ', '');
+                body = body.replace(`- [ ] ${label}`, `- [x] ${label}`);
+              }
+
+              await github.rest.issues.updateComment({
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body,
+              });
+            }
+
+      - name: Comment if spec not found
+        if: steps.check-spec.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branchName = '${{ github.head_ref }}';
+            const specName = '${{ steps.extract-spec.outputs.spec_name }}';
+
+            const marker = '## Spec File Not Found';
+
+            let body = marker + '\n\n';
+            body += `Branch: \`${branchName}\`\n`;
+            body += `Expected spec: \`.specify/specs/${specName}.md\`\n\n`;
+            body += '### Action Required\n';
+            body += `1. Create the spec file: \`.specify/specs/${specName}.md\`\n`;
+            body += '2. Or update your branch name to match an existing spec\n\n';
+            body += '### Available Specs\n';
+            body += 'Check `.specify/specs/` directory for existing specs.';
+
+            // Marker-based dedup
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && (c.body.startsWith(marker) || c.body.startsWith('## SDD Spec Check'))
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body,
+              });
+            }
+
+      - name: Check status
+        run: |
+          if [ "${{ steps.check-spec.outputs.exists }}" == "false" ]; then
+            echo "Spec file not found - please create it or fix branch name"
+            exit 1
+          fi
+
+          if [ "${{ steps.validate-spec.outputs.has_requirements }}" == "false" ]; then
+            echo "Warning: Spec file missing requirements section"
+          fi
+
+          echo "Spec check passed"

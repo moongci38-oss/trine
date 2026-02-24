@@ -38,6 +38,10 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 | 카테고리 | 소스 경로 | 배포 경로 | 설명 |
 |---------|----------|----------|------|
 | templates | `trine/templates/` | `.specify/templates/` | Spec, Plan, Task 템플릿 (scope: all만) |
+| github-spec-kit/workflows | `trine/github-spec-kit/workflows/` | `.github/workflows/` | GitHub Actions (spec-check, spec-change-detector) |
+| github-spec-kit/issue-templates | `trine/github-spec-kit/issue-templates/` | `.github/ISSUE_TEMPLATE/` | Issue 템플릿 (spec-request, bug-report) |
+| github-spec-kit/pr-template | `trine/github-spec-kit/pr-template/` | `.github/` | PR 템플릿 (pull_request_template.md) |
+| github-spec-kit/scripts | `trine/github-spec-kit/scripts/` | `scripts/` | Spec 검증 스크립트 (validate-spec.js) |
 | recommended/hooks | `trine/recommended/hooks/` | `.claude/hooks/` | 추천 hooks (프로젝트별 설정 의존) |
 
 #### 배포 중단 (소스에서 직접 참조)
@@ -61,7 +65,7 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 ├── manifest.json                   ← 개인 설정 (git 추적 안 됨)
 │
 ├── scripts/                        ← 실행 스크립트 (setup이 ~/.claude/scripts/에 복사)
-│   ├── trine-sync.mjs              ← 동기화 엔진 v1.4.0
+│   ├── trine-sync.mjs              ← 동기화 엔진 v1.5.0
 │   ├── session-state.mjs           ← 세션 상태 관리 CLI
 │   └── setup.mjs                   ← 부트스트랩 스크립트
 │
@@ -88,13 +92,25 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   ├── trine-execution-plan.md     ← 실행 계획
 │   └── trine-team-onboarding-guide.md ← 이 문서
 │
-├── templates/                      ← → 프로젝트 .specify/templates/에 배포 (유일한 프로젝트 배포)
+├── templates/                      ← → 프로젝트 .specify/templates/에 배포
 │   ├── spec-template-base.md       ← Spec 작성 템플릿
 │   ├── plan-template-base.md       ← 구현 계획 템플릿
 │   ├── task-template-base.md       ← 태스크 분배 템플릿 (Wave 기반)
 │   ├── walkthrough-template-base.md ← 구현 워크스루 템플릿
 │   ├── progress-template.md        ← 진행 상태 템플릿
 │   └── development-plan-template.md ← 개발 계획서 템플릿
+│
+├── github-spec-kit/                ← → 프로젝트 .github/ + scripts/에 배포 (v1.5.0)
+│   ├── workflows/                  ← GitHub Actions workflows
+│   │   ├── spec-check.yml          ← PR 시 Spec 파일 검증
+│   │   └── spec-change-detector.yml ← Spec 변경 감지 + Issue 생성
+│   ├── issue-templates/            ← GitHub Issue 템플릿
+│   │   ├── spec-request.md         ← Spec 요청 템플릿
+│   │   └── bug-report.md           ← 버그 리포트 템플릿
+│   ├── pr-template/                ← PR 템플릿
+│   │   └── pull_request_template.md ← SDD 준수 PR 템플릿
+│   └── scripts/                    ← Spec 검증 스크립트
+│       └── validate-spec.js        ← 로컬 Spec 유효성 검사
 │
 ├── agents/                         ← → ~/.claude/agents/에 전역 배포
 │   ├── spec-writer-base.md         ← Spec 작성 에이전트
@@ -141,8 +157,10 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 | `setup.mjs` | manifest.example.json | `manifest.json` 생성 | 최초 1회 (인터랙티브) |
 | `trine-sync` | 전역 컴포넌트 (위와 동일) | `~/.claude/` | 동기화 시 |
 | `trine-sync` | templates | 프로젝트 `.specify/templates/` | 동기화 시 (scope: all만) |
+| `trine-sync` | github-spec-kit | 프로젝트 `.github/` + `scripts/` | 동기화 시 (scope: all만, v1.5.0) |
 | `trine-sync` | recommended/hooks | 프로젝트 `.claude/hooks/` | 동기화 시 (기존 파일 스킵) |
 
+> **v1.5.0 변경**: GitHub Spec Kit (workflows, issue templates, PR template, validate-spec.js)을 프로젝트에 배포.
 > **v1.4.0 변경**: docs, shared-docs는 더 이상 프로젝트에 배포하지 않음. `~/.claude/trine/`에서 직접 참조.
 
 ---
@@ -400,11 +418,11 @@ node ~/.claude/trine/scripts/setup.mjs --wsl-path "Z:/ws" --win-path "E:/ws"    
 
 ---
 
-## 6. Override Tracking (v1.2.0 → v1.4.0)
+## 6. Override Tracking (v1.2.0 → v1.5.0)
 
 ### 6.1 개요
 
-v1.4.0부터 **templates만 Override Tracking 대상**이다 (agents, skills, commands, prompts는 전역 배포로 전환).
+v1.5.0부터 **templates와 github-spec-kit이 Override Tracking 대상**이다 (agents, skills, commands, prompts는 전역 배포로 전환).
 
 프로젝트에서 trine이 배포한 templates 파일을 수정하면, 이후 전역 소스가 변경되더라도 프로젝트의 커스텀 버전이 유지된다. 반대로, 수정하지 않은 파일은 전역 변경이 자동으로 반영된다.
 
@@ -623,7 +641,17 @@ v1.4.0부터 `~/.claude/`에 전역 배포. 이미 존재하는 파일은 스킵
 
 ## 10. 작업 이력
 
-### 10.1 v1.4.0 변경사항 (2026-02-23)
+### 10.1 v1.5.0 변경사항 (2026-02-24)
+
+| 변경 | 설명 |
+|------|------|
+| GitHub Spec Kit 전역화 | `github-spec-kit/` → 프로젝트 `.github/` + `scripts/`에 배포 (scope: all) |
+| Override Tracking 확장 | templates + github-spec-kit 모두 프로젝트별 커스터마이징 추적 |
+| 범용 workflows | Portfolio + GodBlade 장점 결합한 범용 spec-check.yml, spec-change-detector.yml |
+| 범용 validate-spec.js | 번호 매김 + 한국어/영어 패턴 지원, Node.js 런타임 불필요 workflow |
+| manifest.json v1.2.0 | core 섹션에 github-spec-kit 파일 목록 추가 |
+
+### 10.2 v1.4.0 변경사항 (2026-02-23)
 
 | 변경 | 설명 |
 |------|------|

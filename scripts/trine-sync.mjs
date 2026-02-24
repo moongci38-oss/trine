@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * trine-sync.mjs v1.4.0
+ * trine-sync.mjs v1.5.0
  * Trine Global + Project Sync Engine
+ *
+ * v1.5.0: GitHub Spec Kit global deployment
+ *   - github-spec-kit/ → project .github/ + scripts/ (scope: all)
+ *   - Override tracking for workflows, templates, scripts
  *
  * v1.4.0: Global deployment model
  *   - rules, agents, skills, commands, prompts → ~/.claude/ (global, all projects)
@@ -68,6 +72,10 @@ const GLOBAL_RECOMMENDED_MAPPINGS = [
 // Project-only deployment (scope: all targets only)
 const PROJECT_MAPPINGS = [
   { src: 'templates', dst: '.specify/templates' },
+  { src: 'github-spec-kit/workflows', dst: '.github/workflows' },
+  { src: 'github-spec-kit/issue-templates', dst: '.github/ISSUE_TEMPLATE' },
+  { src: 'github-spec-kit/pr-template', dst: '.github' },
+  { src: 'github-spec-kit/scripts', dst: 'scripts' },
 ];
 
 // Project-only recommended (hooks are project-specific)
@@ -75,8 +83,14 @@ const PROJECT_RECOMMENDED_MAPPINGS = [
   { src: 'recommended/hooks', dst: '.claude/hooks' },
 ];
 
-// Override policy: only templates use state-based tracking
-const OVERRIDE_CATEGORIES = new Set(['templates']);
+// Override policy: templates + github-spec-kit use state-based tracking
+const OVERRIDE_CATEGORIES = new Set([
+  'templates',
+  'github-spec-kit/workflows',
+  'github-spec-kit/issue-templates',
+  'github-spec-kit/pr-template',
+  'github-spec-kit/scripts',
+]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -324,7 +338,7 @@ function cmdSync(args) {
     const scope = config.scope || 'all';
     if (scope === 'shared-only') continue;
 
-    console.log(`\n📦 Project → ${name} (templates)`);
+    console.log(`\n📦 Project → ${name}`);
 
     const syncState = loadSyncState(projectPath);
 
@@ -445,7 +459,7 @@ function cmdStatus(args) {
       statusLines.push({
         name,
         workspace: config.workspace || null,
-        line: `${status} ${name} (templates): ${synced} synced, ${outOfSync} outdated, ${missing} missing`,
+        line: `${status} ${name}: ${synced} synced, ${outOfSync} outdated, ${missing} missing`,
       });
     }
 
@@ -521,7 +535,7 @@ function cmdDiff(args) {
 
   const projectPath = resolve(config.path);
   const syncState = loadSyncState(projectPath);
-  console.log(`📊 Diff: trine templates vs ${targetName}\n`);
+  console.log(`📊 Diff: trine project files vs ${targetName}\n`);
 
   for (const mapping of PROJECT_MAPPINGS) {
     const srcDir = join(TRINE_ROOT, mapping.src);
@@ -717,13 +731,13 @@ function main() {
       cmdRemove(args);
       break;
     default:
-      console.log(`Trine Sync Engine v1.4.0 (Global Deployment Model)
+      console.log(`Trine Sync Engine v1.5.0 (Global Deployment Model)
 
 Usage: node ~/.claude/scripts/trine-sync.mjs <command>
 
 Commands:
   sync [--target <name>] [--include-recommended] [--dry-run]
-                            Deploy: global → ~/.claude/, templates → projects
+                            Deploy: global → ~/.claude/, project files → projects
   status [--quiet]          Check sync status (exit 2 = out of sync)
   diff [<target>]           Show differences (no target = global diff)
   list [--workspace <key>]  List all registered targets
@@ -734,6 +748,7 @@ Commands:
 Deployment:
   Global (all projects):  rules, agents, skills, commands, prompts → ~/.claude/
   Project (scope: all):   templates → .specify/templates/
+                          github-spec-kit → .github/ + scripts/
   Reference only:         docs, shared-docs → ~/.claude/trine/ (not deployed)
 
 Source: ${normalPath(TRINE_ROOT)}
