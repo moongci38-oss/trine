@@ -41,30 +41,65 @@
 ## Phase 3: 구현 + AI 자동 검증
 
 1. AI가 Spec 기준으로 구현 (의존성 없는 태스크만 병렬 Agent Teams — Wave 단위 스폰)
-2. AI가 **Walkthrough 작성 (필수)** → `docs/walkthroughs/`
-3. **Check 3**: `verify.sh code` (프로젝트별 — test/lint/build)
-   - 실패 → 자동 수정 → 재실행 (최대 3회)
-4. **Check 3.5**: 트레이서빌리티 매트릭스 vs Spec 추적성 검증
-   - 결함 → 자동 수정 → Walkthrough 업데이트 → 재검증
-5. **Check 3.6** (UI/UX 품질) — Subagent 격리 실행
-6. **Check 3.7** (코드 품질) — Subagent 격리 실행 (3.6과 병렬)
-7. **Check 3.8** (보안) — Subagent 격리 실행 (3.6/3.7과 병렬)
-8. Auto-fix: 실패 시 3회 재시도 → Smoke Test (Check 3만) → Phase 롤백
+2. 구현 완료 후 병렬 실행:
+   a. **Walkthrough 작성** → `docs/walkthroughs/` (`technical-writer` Subagent 위임 권장)
+   b. **Check 3**: `verify.sh code` (프로젝트별 — test/lint/build + 브랜치/커밋 규칙)
+   - Check 3 실패 → 자동 수정 → 재실행 (최대 3회)
+3. Check 3 PASS 후 4개 Subagent 병렬 실행:
+   a. **Check 3.5** (트레이서빌리티) — Subagent 격리 (`/trine-check-traceability`)
+   b. **Check 3.6** (UI/UX 품질) — Subagent 격리 (`/trine-check-ui`)
+   c. **Check 3.7** (코드 품질) — Subagent 격리 (code-reviewer)
+   d. **Check 3.8** (보안) — Subagent 격리 (`/trine-check-security`)
+4. Auto-fix: 실패 시 Lead가 수정 → Smoke Test (Check 3만) → 3회 초과 시 Phase 롤백
+
+### Frontend 점진적 품질 루프 (UI 파일 변경 시)
+
+UI 컴포넌트/페이지를 구현할 때 아래 루프를 단위별로 반복한다.
+"전부 구현 후 사후 검증"이 아니라 **컴포넌트 단위로 구현→확인→수정**을 반복하여 최상급 퀄리티를 달성한다.
+
+#### 루프 사이클 (컴포넌트/페이지 단위)
+
+1. **디자인 결정**: `frontend-design` Skill 로드 → 디자인 방향 결정
+   - 타이포그래피, 컬러, 모션, 레이아웃 전략
+   - 디자인 토큰(@theme, CSS 변수) 우선 정의
+   - AI 슬롭 회피 (generic 폰트, 뻔한 색상 금지)
+2. **구현**: 컴포넌트 코드 작성
+   - Context7 MCP로 사용 라이브러리 최신 문서 참조
+   - 접근성 속성(aria-label, role) 즉시 포함
+3. **이미지 에셋** (필요 시): NanoBanana MCP
+   - `/generate-image` 또는 `/trine-generate-image`로 생성
+   - 생성 직후 이미지 품질 확인 (크기, 포맷, 해상도)
+4. **시각 확인**: Playwright MCP로 렌더링 검증
+   - 개발 서버 실행 중이면 navigate → resize → snapshot/screenshot
+   - 최소 3개 뷰포트: Mobile(375x812), Tablet(768x1024), Desktop(1440x900)
+   - 접근성 스냅샷(browser_snapshot)으로 시맨틱 구조 확인
+5. **디자인 조정**: 시각적 문제 발견 시 수정 후 4번 재확인
+6. **다음 단위**: 만족스러우면 다음 컴포넌트/페이지로 이동
+
+#### 병렬화 (Agent Teams 사용 시)
+
+- Teammate별 파일 소유권 분리 후 독립적으로 루프 실행 가능
+- 각 Teammate가 자신의 컴포넌트에 대해 Playwright 시각 확인 독립 수행
+- NanoBanana 이미지 생성은 별도 Teammate에 위임 가능 (구현과 병렬)
+
+#### NanoBanana Visual QA (선택적)
+
+- 구현된 UI 스크린샷을 Gemini Vision으로 품질 평가
+- 디자인 의도 대비 시각적 일치도 점수화 가능
+- NanoBanana 미가용 시 Playwright 스크린샷 + 수동 판단으로 대체
+
    ─── checkpoint: state=phase3_complete ───
 
 ## Phase 4: PR 생성 및 완료
 
-1. **Check 4**: 커밋 메시지 규칙, 브랜치 네이밍, 변경 파일 목록 최종 체크
-   - **통과** → 2단계
-   - **실패** → Phase 3 복귀
-2. AI가 커밋 생성 (Conventional Commits)
-3. AI가 `gh pr create`로 PR 생성 + URL 반환
-4. **Check 5 (PR Health Check)**:
+1. AI가 커밋 생성 (Conventional Commits)
+2. AI가 `gh pr create`로 PR 생성 + URL 반환
+3. **Check 5 (PR Health Check)**:
    a. `gh pr view` + `gh pr checks`로 PR 상태 확인
    b. merge conflict → rebase → 충돌 해결
    c. CI 실패 → 로그 분석 → 코드 수정 → 새 커밋 push
    d. PR 본문 체크리스트 미완료 → 자동 채움
-5. **[STOP]** Human이 PR 검토 + Merge
-6. (조건부) Human 리뷰 코멘트 대응 → AI 수정 → 재검토
-7. 세션 종료
+4. **[STOP]** Human이 PR 검토 + Merge
+5. (조건부) Human 리뷰 코멘트 대응 → AI 수정 → 재검토
+6. 세션 종료
    ─── checkpoint: state=session_complete ───

@@ -61,9 +61,44 @@
 | Check 3.5 | Walkthrough 후 | 트레이서빌리티 검증 | 2 |
 | Check 3.6 | Check 3 후 | UI/UX 품질 (Subagent 격리) | 3 |
 | Check 3.7 | Check 3 후 | 코드 품질 (Subagent 격리, 3.6과 병렬) | 3 |
+| Check 3.7P | Check 3 후 | 성능 품질 (performance-checker, 3.7과 병렬) | 3 |
 | Check 3.8 | Check 3 후 | 보안 (Subagent 격리, 3.6/3.7과 병렬) | 3 |
 | Check 4 | PR 생성 전 | 커밋/브랜치 규칙 | 1 |
 | Check 5 | PR 생성 후 | PR Health (conflict, CI) | 1 |
+
+## 모델 계층화 (Teammate 스폰)
+
+Agent Teams에서 Teammate 스폰 시 작업 성격에 따라 모델을 선택한다.
+
+| 계층 | 모델 | 역할 | 사용 시점 |
+|------|------|------|----------|
+| Lead | Opus 4.6 | 아키텍처 판단, 종합, 오케스트레이션 | 항상 |
+| 구현 Teammate | Sonnet 4.6 | 코딩, 테스트, 문서 작성 | 코드 변경이 필요한 Task |
+| 탐색 Teammate | Haiku 4.5 | 파일 탐색, 패턴 확인, 코드 검색 | 정보 수집만 필요한 Task |
+
+### Haiku 탐색 Teammate 활용 기준
+
+Haiku 4.5를 탐색 Teammate로 스폰하는 경우:
+
+- **파일 패턴 조사**: 프로젝트 내 기존 코드 패턴 파악 (예: "기존 DTO 데코레이터 패턴 확인")
+- **의존성 매핑**: 모듈 간 import 관계 조사
+- **코드 검색**: 특정 함수/클래스의 사용처 전수 조사
+- **설정 확인**: 기존 설정 파일 값 수집
+
+Haiku를 사용하지 않는 경우:
+- 코드 수정/생성이 필요한 작업 → Sonnet 사용
+- 아키텍처 판단이 필요한 작업 → Lead 직접 수행
+- 보안/품질 검증 → 전용 Check Subagent 사용
+
+### 스폰 예시
+
+```
+# 탐색 Teammate (Haiku) — 정보 수집만
+Task(model: "haiku", prompt: "apps/api/src/modules/ 내 모든 Entity의 @Index() 데코레이터 사용 현황 조사")
+
+# 구현 Teammate (Sonnet) — 코드 변경
+Task(model: "sonnet", prompt: "estimates 모듈의 Service/Controller 구현")
+```
 
 ## Auto-Fix 규칙
 

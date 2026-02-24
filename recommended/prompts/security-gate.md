@@ -27,7 +27,47 @@
 | A03:Injection | SQL/NoSQL/Command injection |
 | A07:Auth Failures | JWT 하드코딩, 토큰 미만료 |
 
-### 3. 의존성 CVE 스캔
+### 3. OWASP API Security Top 10 (2023) 강화 검증
+
+OWASP API Security Top 10 (2023) 기준으로 추가 검증한다.
+
+#### API3: Broken Object Property Level Authorization
+
+DTO/Entity에서 민감 필드가 응답에 노출되지 않는지 검증한다.
+
+| 검사 항목 | FAIL 조건 |
+|-----------|----------|
+| `@Exclude()` 누락 | Entity의 `password`, `hashedPassword`, `refreshToken` 등 민감 필드에 `@Exclude()` 미적용 |
+| ClassSerializerInterceptor 부재 | 글로벌 또는 모듈 레벨에서 `ClassSerializerInterceptor` 미등록 |
+| DTO 응답 분리 | Entity를 직접 반환하고 별도 Response DTO 없음 |
+
+**탐지 방법:**
+
+1. `*.entity.ts`에서 `password`, `secret`, `token`, `hash` 패턴 필드 탐색
+2. 해당 필드에 `@Exclude()` 데코레이터 존재 여부 확인
+3. Controller에서 Entity 직접 반환 vs Response DTO 사용 여부 확인
+
+#### API4: Unrestricted Resource Consumption
+
+`trine-performance.md` 룰의 Rate Limiting/DTO 크기 제한과 연동하여 검증한다.
+
+| 검사 항목 | FAIL 조건 |
+|-----------|----------|
+| `@Throttle()` 누락 | 인증/결제 등 민감 엔드포인트에 `@Throttle()` 미적용 |
+| `@SkipThrottle()` 오용 | 공개 엔드포인트에 `@SkipThrottle()` 적용 |
+| Payload 크기 미제한 | Express body-parser 크기 제한 미설정 (`limit` 옵션 없음) |
+
+#### API9: Improper Inventory Management
+
+미사용/레거시 엔드포인트를 감지한다.
+
+| 검사 항목 | WARN 조건 |
+|-----------|----------|
+| 레거시 경로 | `/v1/` 경로와 `/v2/` 경로가 동시 존재 (구버전 미폐기) |
+| 미사용 Controller | Controller에 등록된 라우트 중 테스트/문서에 언급 없는 엔드포인트 |
+| Debug 엔드포인트 | `/debug`, `/test`, `/internal` 경로가 프로덕션 코드에 존재 |
+
+### 4. 의존성 CVE 스캔
 
 프로젝트 패키지 매니저의 audit 명령 실행.
 

@@ -75,16 +75,19 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   └── docs-structure.md           ← docs/ 통일 폴더 구조
 │
 ├── rules/                          ← Trine 규칙 → ~/.claude/rules/에 전역 배포
-│   ├── trine-workflow.md           ← SDD 파이프라인 워크플로우
+│   ├── trine-workflow.md           ← SDD 파이프라인 워크플로우 (모델 계층화 포함)
 │   ├── trine-session-state.md      ← 세션 상태 관리 규칙
 │   ├── trine-context-engineering.md ← 컨텍스트 엔지니어링
 │   ├── trine-requirements-analysis.md ← 요구사항 분석
 │   ├── trine-walkthrough.md        ← 구현 워크스루 규칙
 │   ├── trine-progress.md           ← 진행 상태 추적
-│   └── trine-context-management.md ← 컨텍스트 관리
+│   ├── trine-context-management.md ← 컨텍스트 관리
+│   ├── trine-performance.md        ← 백엔드 성능 품질 규칙 (N+1, Pagination, Rate Limiting)
+│   └── trine-module-dependency.md  ← 모듈 의존성 방향 검증
 │
 ├── prompts/                        ← → ~/.claude/prompts/에 전역 배포
-│   └── trine-pipeline.md           ← SDD 파이프라인 프롬프트
+│   ├── trine-pipeline.md           ← SDD 파이프라인 프롬프트
+│   └── security-gate.md            ← Check 3.8 보안 검수 (OWASP API3/4/9 포함)
 │
 ├── docs/                           ← 소스에서 직접 참조 (배포 안 함)
 │   ├── trine-architecture.md       ← 아키텍처 설계 문서
@@ -115,7 +118,8 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 ├── agents/                         ← → ~/.claude/agents/에 전역 배포
 │   ├── spec-writer-base.md         ← Spec 작성 에이전트
 │   ├── code-reviewer-base.md       ← 코드 리뷰 에이전트
-│   └── trine-pm-updater.md         ← PM 업데이트 에이전트
+│   ├── trine-pm-updater.md         ← PM 업데이트 에이전트
+│   └── performance-checker.md      ← 성능 정적 분석 에이전트 (Check 3.7P)
 │
 ├── skills/                         ← → ~/.claude/skills/에 전역 배포
 │   ├── spec-compliance-checker/    ← Spec 준수 검사
@@ -584,6 +588,7 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 | `trine-sync.md` | /trine-sync 동기화 |
 | `trine-status.md` | /trine-status 상태 확인 |
 | `trine-resume.md` | /trine-resume 세션 재개 |
+| `trine-check-traceability.md` | /trine-check-traceability 트레이서빌리티 점검 (Check 3.5) |
 | `trine-check-security.md` | /trine-check-security 보안 점검 (recommended) |
 | `trine-check-ui.md` | /trine-check-ui UI 품질 점검 (recommended) |
 | `trine-generate-image.md` | /trine-generate-image 이미지 생성 (recommended) |
@@ -702,7 +707,51 @@ v1.4.0부터 `~/.claude/`에 전역 배포. 이미 존재하는 파일은 스킵
 | `portfolio-project/.gitignore` | 수정 — trine-sync-state.json 추가 |
 | `god_Sword/src/.gitignore` | 수정 — trine-sync-state.json 추가 |
 
-### 10.3 GitHub Repository
+### 10.3 v1.4.2 변경사항 (2026-02-24) — Frontend 점진적 품질 루프
+
+| 변경 | 설명 |
+|------|------|
+| Check 3.6 도구 확장 | `allowed-tools`에 Playwright MCP 4개 도구 + ToolSearch 추가 (반응형 시각 검증 실행 가능) |
+| Frontend 점진적 품질 루프 | Phase 3에 컴포넌트 단위 디자인→구현→미리보기→수정 반복 사이클 추가 |
+| ui-quality-gate 강화 | 도구 로드 절차 + 반응형 검증 구체 절차 + NanoBanana Visual QA 연계 추가 |
+| Walkthrough 시각 검증 | 템플릿에 UI 변경 시 뷰포트별 스크린샷 + 접근성 트리 섹션 추가 |
+| Walkthrough 행동 규칙 | 규칙 10 (시각 검증 섹션) + 규칙 11 (점진적 품질 루프) 추가 |
+
+#### Frontend 작업 도구 매트릭스
+
+| 도구 | Tier | Phase | 용도 | Fallback |
+| ---- | ---- | ----- | ---- | -------- |
+| frontend-design Skill | Core | Phase 3 | 디자인 방향, AI 슬롭 방지 | 없음 (필수) |
+| Playwright MCP | Core | Phase 3 + Check 3.6 | 실시간 미리보기, 반응형 검증 | 없음 (필수) |
+| Context7 MCP | Core | Phase 3 | React/Next.js 최신 문서 참조 | WebSearch |
+| screenshot-capturer | Core | Phase 3 + Walkthrough | 자동 반응형 스크린샷 | Playwright 직접 호출 |
+| NanoBanana MCP | Tier 2 | Phase 3 + Check 3.6 | 이미지 생성/편집 + Visual QA | 수동 이미지 준비 |
+
+#### Frontend 점진적 품질 루프
+
+Phase 3에서 UI 구현 시 컴포넌트 단위로 아래 사이클을 반복:
+
+```text
+디자인 결정 → 구현 → 이미지 생성 → 시각 확인 → 조정 → 다음 컴포넌트
+```
+
+- frontend-design Skill로 디자인 방향 결정
+- Context7 MCP로 최신 라이브러리 문서 참조
+- NanoBanana MCP로 이미지 에셋 생성
+- Playwright MCP로 3+ 뷰포트 시각 확인
+- 문제 발견 시 즉시 수정 후 재확인
+
+### 10.4 v1.4.1 변경사항 (2026-02-24) — Lead 파이프라인 고도화
+
+| 변경 | 설명 |
+|------|------|
+| Check 3.5 Subagent 격리 | `trine-check-traceability` 커맨드 신설 → 3.6/3.7/3.8과 4개 병렬 실행 |
+| Check 4 폐지 | 커밋/브랜치 규칙 검증을 Check 3 (`verify.sh code`)에 통합 |
+| Walkthrough 위임 | `technical-writer` Subagent에 Walkthrough 초안 작성 위임 (권장) |
+| Walkthrough + Check 3 병렬 | 구현 완료 후 Walkthrough와 Check 3를 동시 실행 가능 |
+| spec-compliance-checker JSON | Check 3.5 출력 형식을 Markdown → JSON으로 변경 (Subagent 격리 규칙 준수) |
+
+### 10.4 GitHub Repository
 
 - **URL**: `git@github.com:moongci38-oss/trine.git`
 - **Visibility**: Private

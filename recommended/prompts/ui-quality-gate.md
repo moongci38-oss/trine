@@ -6,6 +6,15 @@
 
 UI 관련 파일 (`.tsx`, `.jsx`, `.vue`, `.css`, `.scss`, `.svg`, `.png`, `.jpg`, `.webp`, `.avif`) 변경 시에만 실행.
 
+## 도구 로드 절차
+
+Check 3.6 Subagent는 아래 순서로 도구를 로드한다:
+
+1. ToolSearch로 `playwright` 검색 → 반응형 시각 검증 (필수)
+2. ToolSearch로 `nanobanana` 검색 → 이미지 품질 FAIL 시 자동 수정 (선택)
+3. ToolSearch로 `lighthouse` 검색 → 성능 감사 (미설치 시 SKIP, FAIL 아님)
+4. ToolSearch로 `a11y` 검색 → 접근성 감사 (미설치 시 SKIP, FAIL 아님)
+
 ## 검증 영역
 
 ### 1. 정적 UI 검증 (프로젝트별 스크립트)
@@ -44,6 +53,28 @@ UI 관련 파일 (`.tsx`, `.jsx`, `.vue`, `.css`, `.scss`, `.svg`, `.png`, `.jpg
 | Desktop | 1440x900 |
 | Dark Mode | Desktop + prefers-color-scheme: dark |
 
+### 반응형 시각 검증 절차
+
+1. browser_navigate → 개발 서버 URL (localhost:PORT)
+2. 뷰포트별 반복:
+   a. browser_resize(width, height)
+   b. browser_snapshot() → 접근성 트리 확인 (시맨틱 구조 검증)
+   c. browser_take_screenshot() → 스크린샷 저장
+3. Dark Mode: browser_evaluate로 prefers-color-scheme 설정 후 반복
+4. 스크린샷 저장: `docs/walkthroughs/screenshots/{spec-name}/` 하위
+
+### 이미지 품질 FAIL 시 자동 수정 (NanoBanana 가용 시)
+
+- ToolSearch로 NanoBanana 검색 → 가용 시 edit_image로 최적화 시도
+- 결과 JSON에 `nanobananaUsed: true/false` 표기
+- NanoBanana 불가 시 WARN 출력 (PASS/FAIL 판정에 영향 없음)
+
+### NanoBanana Visual QA (선택적)
+
+- 캡처된 스크린샷을 NanoBanana generate_image에 전달하여 AI 품질 평가
+- 디자인 토큰 일관성, 레이아웃 균형, 시각적 계층 구조 점검
+- 결과: JSON의 `visualQA` 필드에 기록 (PASS/FAIL 판정과 독립)
+
 ## 결과 반환 형식 (JSON)
 
 ```json
@@ -55,6 +86,8 @@ UI 관련 파일 (`.tsx`, `.jsx`, `.vue`, `.css`, `.scss`, `.svg`, `.png`, `.jpg
   "lighthouse": { "lcp": 0, "cls": 0, "a11yScore": 0 },
   "wcag": { "critical": 0, "serious": 0, "moderate": 0 },
   "responsive": { "mobile": "PASS|FAIL", "tablet": "PASS|FAIL", "desktop": "PASS|FAIL", "dark": "PASS|FAIL" },
+  "nanobananaUsed": false,
+  "visualQA": { "score": null, "notes": "" },
   "summary": "",
   "autoFixable": false
 }

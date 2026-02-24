@@ -63,6 +63,19 @@
 
 ---
 
+## 시각 검증 (UI 변경 시)
+
+> UI 관련 파일(.tsx, .jsx, .css 등) 변경이 없으면 이 섹션 생략.
+
+| 뷰포트 | 스크린샷 | 접근성 | 상태 |
+| ------ | ------- | ------ | :--: |
+| Mobile (375x812) | `screenshots/{spec-name}/mobile.png` | 트리 확인 | PASS/FAIL |
+| Tablet (768x1024) | `screenshots/{spec-name}/tablet.png` | 트리 확인 | PASS/FAIL |
+| Desktop (1440x900) | `screenshots/{spec-name}/desktop.png` | 트리 확인 | PASS/FAIL |
+| Dark Mode | `screenshots/{spec-name}/dark.png` | 트리 확인 | PASS/FAIL |
+
+---
+
 ## Known Issues (권장)
 
 - 없음
