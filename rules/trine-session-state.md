@@ -95,14 +95,17 @@ Phase 전환 시 반드시 체크포인트를 생성한다.
 | `timeoutHistory` | **3개** | `timeoutArchive` |
 | `humanOverrides` | **3개** | `overrideArchive` |
 
-## 자동 정리 (init 시 실행)
+## 자동 정리
 
-`init` 실행 시 아래 정리가 자동으로 수행된다:
+완료된 세션은 아래 시점에서 자동으로 정리된다 (수동 실행 불필요):
 
-1. **완료 세션 삭제** — `currentPhase === 'session_complete'`인 세션 파일 자동 삭제
-2. **event-log.jsonl 회전** — 500줄 초과 시 최근 200줄만 유지
+| 트리거 | 정리 내용 |
+|--------|----------|
+| `checkpoint session_complete` | 해당 세션 파일 즉시 삭제 |
+| `init` | 잔여 완료 세션 삭제 + event-log.jsonl 회전 (500줄 → 200줄) |
+| `list` | 잔여 완료 세션 삭제 |
 
-수동 정리: `node ~/.claude/scripts/session-state.mjs clean`
+`clean` 명령은 하위 호환용으로 유지되나, 일반적으로 호출할 필요 없다.
 
 ## 레거시 마이그레이션
 

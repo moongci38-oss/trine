@@ -45,12 +45,12 @@
    a. **Walkthrough 작성** → `docs/walkthroughs/` (`technical-writer` Subagent 위임 권장)
    b. **Check 3**: `verify.sh code` (프로젝트별 — test/lint/build + 브랜치/커밋 규칙)
    - Check 3 실패 → 자동 수정 → 재실행 (최대 3회)
-3. Check 3 PASS 후 4개 Subagent 병렬 실행:
-   a. **Check 3.5** (트레이서빌리티) — Subagent 격리 (`/trine-check-traceability`)
-   b. **Check 3.6** (UI/UX 품질) — Subagent 격리 (`/trine-check-ui`)
-   c. **Check 3.7** (코드 품질) — Subagent 격리 (code-reviewer)
-   d. **Check 3.8** (보안) — Subagent 격리 (`/trine-check-security`)
-4. Auto-fix: 실패 시 Lead가 수정 → Smoke Test (Check 3만) → 3회 초과 시 Phase 롤백
+3. Check 3 PASS 후 Subagent 병렬 실행 (2개 트랙):
+   - **트랙 A** (순차): **Check 3.5** (트레이서빌리티, `/trine-check-traceability`) → **Check 3.5T** (테스트 품질, `test-quality-checker`)
+   - **트랙 B** (병렬): **Check 3.6** (UI/UX, `/trine-check-ui`) | **Check 3.7** (코드 품질, code-reviewer) | **Check 3.7P** (성능, performance-checker) | **Check 3.8** (보안, `/trine-check-security`)
+   - 트랙 A와 트랙 B는 동시 시작 (3.5T는 3.5 출력을 입력으로 사용하므로 3.5 이후 순차 실행)
+   - Check 3.5T는 `.specify/test-quality-config.json` 존재 시에만 실행 (미존재 시 SKIP)
+4. Auto-fix: 실패 시 Lead가 수정 → Smoke Test (Check 3만) → Check 3 ↔ 3.5 ↔ 3.5T 합산 3회 초과 시 Phase 롤백
 
 ### Frontend 점진적 품질 루프 (UI 파일 변경 시)
 

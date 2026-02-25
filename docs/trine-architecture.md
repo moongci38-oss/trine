@@ -64,7 +64,7 @@
 Phase 1   (세션 이해)    → 작업 규모 분류 → [STOP] 승인
 Phase 1.5 (요구사항 분석) → Q&A → 트레이서빌리티 매트릭스 생성
 Phase 2   (문서)         → Spec → Plan(조건부) → AI검증1-2 → [STOP] Human 승인 → Task(조건부)
-Phase 3   (구현+자동검증) → Agent Teams 실행 → Walkthrough → Check 3 → 3.5 → 3.6/3.7/3.8(병렬)
+Phase 3   (구현+자동검증) → Agent Teams 실행 → Walkthrough → Check 3 → 3.5 → 3.5T → 3.6/3.7/3.7P/3.8(병렬)
 Phase 4   (PR)           → Check 4 → 커밋 → PR → Check 5 (PR Health) → [STOP] Human 검토+Merge
 ```
 
@@ -100,8 +100,8 @@ Human "구현해줘"
   → ⑦ Teammates: 피어 메시징으로 API 계약 협의 (필요 시)
   → ⑧ Lead: 결과 통합 + Shared 파일 추가 수정
   → ⑨ Lead: Walkthrough 작성
-  → ⑩ Lead: Check 3 → Check 3.5
-  → ⑪ Lead: Check 3.6/3.7/3.8 (병렬, Subagent 격리)
+  → ⑩ Lead: Check 3 → Check 3.5 → Check 3.5T (순차)
+  → ⑪ Lead: Check 3.6/3.7/3.7P/3.8 (병렬, Subagent 격리, ⑩과 동시 시작)
   → ⑫ Lead: 커밋 → PR → Check 5 (PR Health)
 ```
 
@@ -129,8 +129,10 @@ Human "구현해줘"
 | Check 1-2 | 문서 완료 후 | Spec/Plan 구조 | 1 |
 | Check 3 | 구현 완료 후 | test, lint, build | 1 |
 | Check 3.5 | Walkthrough 후 | 트레이서빌리티 + Spec 준수 | 2 |
+| Check 3.5T | Check 3.5 후 | 테스트 품질 (test-quality-checker, 3.5와 순차) | 2 |
 | Check 3.6 | Check 3 후 | UI/UX 품질 (Subagent) | 3 |
 | Check 3.7 | Check 3 후 | 코드 품질 (Subagent, 3.6과 병렬) | 3 |
+| Check 3.7P | Check 3 후 | 성능 품질 (performance-checker, 3.7과 병렬) | 3 |
 | Check 3.8 | Check 3 후 | 보안 (Subagent, 3.6/3.7과 병렬) | 3 |
 | Check 4 | PR 생성 전 | 브랜치명, 커밋, 설정 파일 | 1 |
 | Check 5 | PR 생성 후 | PR Health | 1 |

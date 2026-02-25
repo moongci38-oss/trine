@@ -59,6 +59,7 @@
 | Check 1-2 | 문서 완료 후 | `verify.sh doc` (프로젝트별) | 1 |
 | Check 3 | 구현 완료 후 | `verify.sh code` (프로젝트별) | 1 |
 | Check 3.5 | Walkthrough 후 | 트레이서빌리티 검증 | 2 |
+| Check 3.5T | Check 3.5 후 | 테스트 품질 (test-quality-checker, 3.5와 순차) | 2 |
 | Check 3.6 | Check 3 후 | UI/UX 품질 (Subagent 격리) | 3 |
 | Check 3.7 | Check 3 후 | 코드 품질 (Subagent 격리, 3.6과 병렬) | 3 |
 | Check 3.7P | Check 3 후 | 성능 품질 (performance-checker, 3.7과 병렬) | 3 |
@@ -105,7 +106,7 @@ Task(model: "sonnet", prompt: "estimates 모듈의 Service/Controller 구현")
 - Check 실패 시 자동 수정 → 재실행 (최대 **3회**)
 - 3회 초과 → **[STOP]** Human 개입 필수
 - autoFix 카운터는 세션 재개 시 리셋 금지 (Write-Ahead)
-- Check 3 ↔ 3.5 순환 최대 3회 — 조기 탈출: 2회차 동일 패턴 시 즉시 중단
+- Check 3 ↔ 3.5 ↔ 3.5T 순환 **합산** 최대 3회 — 조기 탈출: 2회차 동일 패턴 시 즉시 중단
 
 ## PR 역할 분리
 

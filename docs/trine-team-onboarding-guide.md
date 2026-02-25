@@ -119,7 +119,8 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   ├── spec-writer-base.md         ← Spec 작성 에이전트
 │   ├── code-reviewer-base.md       ← 코드 리뷰 에이전트
 │   ├── trine-pm-updater.md         ← PM 업데이트 에이전트
-│   └── performance-checker.md      ← 성능 정적 분석 에이전트 (Check 3.7P)
+│   ├── performance-checker.md      ← 성능 정적 분석 에이전트 (Check 3.7P)
+│   └── test-quality-checker.md     ← 테스트 품질 검증 에이전트 (Check 3.5T)
 │
 ├── skills/                         ← → ~/.claude/skills/에 전역 배포
 │   ├── spec-compliance-checker/    ← Spec 준수 검사
@@ -231,7 +232,7 @@ node "$HOME\.claude\trine\scripts\setup.mjs"
 
 [3/7] Install Global Components → ~/.claude/
   rules/ ... 10 files (3 global + 7 trine)
-  agents/ ... 3 files
+  agents/ ... 5 files
   skills/ ... 9 dirs (2 trine + 7 recommended)
   commands/ ... 7 files (4 trine + 3 recommended)
   prompts/ ... 6 files (1 trine + 5 recommended)
@@ -569,7 +570,7 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 | `trine-context-engineering.md` | rules | 컨텍스트 엔지니어링 |
 | `trine-requirements-analysis.md` | rules | 요구사항 분석 |
 | `trine-walkthrough.md` | rules | 구현 워크스루 규칙 |
-| `trine-progress.md` | rules | 진행 상태 추적 |
+| `trine-progress.md` | rules | 진행 상태 추적 (AI 에이전트 트리거 + 수동 매핑 가이드 + 외부 PM 연동) |
 | `trine-context-management.md` | rules | 컨텍스트 관리 |
 
 ### 8.2 전역 Agents (3개)
@@ -579,6 +580,8 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 | `spec-writer-base.md` | Spec 작성 에이전트 |
 | `code-reviewer-base.md` | 코드 리뷰 에이전트 |
 | `trine-pm-updater.md` | PM 업데이트 에이전트 |
+| `performance-checker.md` | 성능 정적 분석 에이전트 (Check 3.7P) |
+| `test-quality-checker.md` | 테스트 품질 검증 에이전트 (Check 3.5T) |
 
 ### 8.3 전역 Commands (7개)
 
@@ -741,7 +744,23 @@ Phase 3에서 UI 구현 시 컴포넌트 단위로 아래 사이클을 반복:
 - Playwright MCP로 3+ 뷰포트 시각 확인
 - 문제 발견 시 즉시 수정 후 재확인
 
-### 10.4 v1.4.1 변경사항 (2026-02-24) — Lead 파이프라인 고도화
+### 10.4 v1.4.3 변경사항 (2026-02-25) — Check 3.5T 테스트 품질 게이트
+
+| 변경 | 설명 |
+|------|------|
+| Check 3.5T 신설 | 테스트 품질/포괄성 검증 게이트 (5축: Integration Test, Error Case, Spec 매핑, 격리, 커버리지) |
+| `test-quality-checker.md` 에이전트 | read-only Sonnet Subagent — Check 3.5 출력을 입력으로 순차 실행 |
+| `trine-test-quality.md` 규칙 | Teammate 행동 규칙 + Lead 검증 규칙 정의 |
+| `test-quality-config.json` 템플릿 | 프로젝트별 테스트 설정 (`.specify/test-quality-config.json`에 배치) |
+| Check 3.5 출력 확장 | `testType`, `relatedDescribeBlocks` 필드 추가 (하위 호환) |
+| autoFix 카운터 통합 | Check 3 ↔ 3.5 ↔ 3.5T 합산 3회 제한 |
+| 프로젝트 불가지론 | `.specify/test-quality-config.json` 미존재 시 SKIP (비개발 영향 없음) |
+
+### 10.5 v1.4.2 변경사항 (2026-02-24) — Frontend 점진적 품질 루프
+
+> 기존 10.3 → 10.5로 이동
+
+### 10.6 v1.4.1 변경사항 (2026-02-24) — Lead 파이프라인 고도화
 
 | 변경 | 설명 |
 |------|------|
