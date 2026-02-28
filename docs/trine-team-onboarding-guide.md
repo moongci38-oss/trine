@@ -96,7 +96,7 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   └── trine-team-onboarding-guide.md ← 이 문서
 │
 ├── templates/                      ← → 프로젝트 .specify/templates/에 배포
-│   ├── spec-template-base.md       ← Spec 작성 템플릿
+│   ├── spec-template-base.md       ← Spec 작성 템플릿 (섹션 9 FE 9항목, 섹션 10 테스트 5항목)
 │   ├── plan-template-base.md       ← 구현 계획 템플릿
 │   ├── task-template-base.md       ← 태스크 분배 템플릿 (Wave 기반)
 │   ├── walkthrough-template-base.md ← 구현 워크스루 템플릿
@@ -116,7 +116,7 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │       └── validate-spec.js        ← 로컬 Spec 유효성 검사
 │
 ├── agents/                         ← → ~/.claude/agents/에 전역 배포
-│   ├── spec-writer-base.md         ← Spec 작성 에이전트
+│   ├── spec-writer-base.md         ← Spec 작성 에이전트 (6카테고리 검증 + 스킬 참조)
 │   ├── code-reviewer-base.md       ← 코드 리뷰 에이전트
 │   ├── trine-pm-updater.md         ← PM 업데이트 에이전트
 │   ├── performance-checker.md      ← 성능 정적 분석 에이전트 (Check 3.7P)
@@ -568,7 +568,7 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 | `trine-workflow.md` | rules | SDD 파이프라인 워크플로우 |
 | `trine-session-state.md` | rules | 세션 상태 관리 규칙 |
 | `trine-context-engineering.md` | rules | 컨텍스트 엔지니어링 |
-| `trine-requirements-analysis.md` | rules | 요구사항 분석 |
+| `trine-requirements-analysis.md` | rules | 요구사항 분석 + 도메인 완결성 체크리스트 (CRUD/권한/에러/FE상태/테스트/입력검증) |
 | `trine-walkthrough.md` | rules | 구현 워크스루 규칙 |
 | `trine-progress.md` | rules | 진행 상태 추적 (AI 에이전트 트리거 + 수동 매핑 가이드 + 외부 PM 연동) |
 | `trine-context-management.md` | rules | 컨텍스트 관리 |
@@ -577,7 +577,7 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 
 | 파일 | 내용 |
 |------|------|
-| `spec-writer-base.md` | Spec 작성 에이전트 |
+| `spec-writer-base.md` | Spec 작성 에이전트 (6카테고리 검증 + Tech Stack 기반 스킬 참조 연결) |
 | `code-reviewer-base.md` | 코드 리뷰 에이전트 |
 | `trine-pm-updater.md` | PM 업데이트 에이전트 |
 | `performance-checker.md` | 성능 정적 분석 에이전트 (Check 3.7P) |
@@ -649,7 +649,31 @@ v1.4.0부터 `~/.claude/`에 전역 배포. 이미 존재하는 파일은 스킵
 
 ## 10. 작업 이력
 
-### 10.1 v1.5.0 변경사항 (2026-02-24)
+### 10.1 v1.6.0 변경사항 (2026-02-28) — Spec 누락 방지 강화
+
+| 변경 | 설명 |
+|------|------|
+| spec-template-base.md 확장 | 섹션 3(NFR 측정기준+검증방법), 4(Error/Edge Path 분리), 9(FE 2줄→9항목: 라우트/컴포넌트계층/Props/상태관리/에러·로딩·빈상태/반응형/접근성/SEO/인터랙션), 10(테스트 3줄→5항목+시나리오 예시) |
+| spec-writer-base.md 강화 | 검증 3항목→6카테고리 (기본섹션/API에러응답/FE검증/테스트시나리오/입력검증/NFR측정), Tech Stack 감지→스킬 참조 연결 (nestjs-expert, nextjs-best-practices, postgres-best-practices) |
+| trine-requirements-analysis.md 확장 | Phase 1.5에 도메인 완결성 체크리스트 6개 영역 추가 (CRUD/권한/에러시나리오/FE상태/테스트/입력검증) |
+| trine-playground.md 확장 | design-playground→Spec 반영 4단계 워크플로우 (디자인값→Spec 섹션 9.6/9.9 자동 삽입 제안) |
+| planning-package-template.md 확장 | S4 산출물 6→7개 (테스트 전략서 추가: 테스트 계층/FE·BE 전략/시딩/환경/커버리지) |
+| sigil-pipeline.md 업데이트 | S4 필수 산출물에 테스트 전략서 등록, 저장 경로 추가 |
+
+#### 근본 원인 진단 → 개선 매핑
+
+| 근본 원인 | 비중 | 대응 변경 |
+|----------|:----:|----------|
+| Spec 자체 불완전 (FE/테스트 빈 스켈레톤) | 70% | spec-template-base 확장 (P1) + spec-writer 검증 강화 (P2) |
+| Phase 2 블라인드 스팟 (기존 도구 지식 미연결) | 20% | spec-writer 스킬 참조 연결 (P2) + playground→Spec 반영 (P6) |
+| Phase 1.5 예방 실패 (누락 미탐지) | 10% | 요구사항 완결성 체크리스트 (P4) |
+
+#### 검증 결과
+
+기존 Spec(site-foundation.md) 역검증 → 13개 갭 모두 신규 템플릿/규칙으로 감지 가능 확인.
+상세: `business/docs/reviews/2026-02-28-spec-gap-diagnostic-verification.md`
+
+### 10.2 v1.5.0 변경사항 (2026-02-24)
 
 | 변경 | 설명 |
 |------|------|
