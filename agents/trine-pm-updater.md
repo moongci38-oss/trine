@@ -251,22 +251,11 @@ gantt
 
 ## 문서 구조 규칙
 
-### progress.md 파싱 규칙
-
-- Phase 상태 이모지: `⬜` (대기) / `🔄` (진행중) / `✅` (완료)
-- 서브태스크 번호: `{Phase}.{Section}.{Item}` (예: 1.2.3)
-- PR 참조: 태스크 끝에 `(PR #N)` 형식
-- Trine 세션 이력: 세션별 Phase 진행 테이블 (Check 결과 포함)
-- Mermaid Gantt: `## 진행 현황 (Gantt)` 헤딩 아래 코드 블록
-
-### development-plan.md 파싱 규칙
-
-- 세션 목록 테이블의 `상태` 컬럼: `⬜`/`🔄`/`✅`
-- 세션 상세의 Phase 테이블: 시작/완료를 `HH:mm` (당일) 또는 `MM-DD` (다일) 형식으로 기록
-- `완료일`과 `소요 시간`은 `session_complete` 이벤트 시 기록
-- Changelog: `#### Changelog` 헤딩
-- 세션 회고: `#### 세션 회고 (자동 생성)` 헤딩
-- 누적 메트릭스: `## 프로젝트 메트릭스` 헤딩
+> 문서별 상세 구조는 템플릿 파일을 참조한다:
+> - `~/.claude/trine/templates/progress-template.md`
+> - `~/.claude/trine/templates/development-plan-template.md`
+>
+> 이벤트 처리 시 먼저 해당 템플릿을 Read하여 현재 구조를 파악한 후 갱신한다.
 
 ---
 

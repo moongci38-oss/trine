@@ -25,9 +25,10 @@ Check 3.6/3.7/3.7P/3.8과는 의존 없음 (동시 실행 가능).
 
 ## 검증 5축
 
-### T-1: Integration Test 존재 (Critical)
+> 축별 규칙 정의 + 판정 기준: `~/.claude/trine/rules/trine-test-quality.md` 참조.
+> 이 에이전트는 각 축의 **감지 패턴과 구체적 검증 방법**을 정의한다.
 
-API 변경이 포함된 FR에 대해 Integration Test 파일이 존재해야 한다.
+### T-1: Integration Test 존재 (Critical)
 
 - Check 3.5 출력의 `requirements` 중 API 관련 FR 식별
 - `testType`이 `"integration"` 또는 `"both"`인지 확인
@@ -36,8 +37,6 @@ API 변경이 포함된 FR에 대해 Integration Test 파일이 존재해야 한
 
 ### T-2: Error Case 포괄 (Critical)
 
-각 FR의 테스트에 Happy Path 외 Error Case가 포함되어야 한다.
-
 - `relatedDescribeBlocks`에서 Error Case 패턴 탐지
 - Error Case 키워드: 4xx 상태코드, `throw`, `reject`, `error`, `invalid`, `fail`, `unauthorized`, `forbidden`, `not found`, `bad request`, `conflict`
 - `testFile`을 직접 읽어 `describe`/`it`/`test` 블록 분석
@@ -45,16 +44,12 @@ API 변경이 포함된 FR에 대해 Integration Test 파일이 존재해야 한
 
 ### T-3: Spec 테스트 매핑률 (Warning)
 
-Spec 10절의 테스트 요구사항 대비 실제 테스트 매칭률.
-
 - Spec 파일에서 "테스트 요구사항" / "Test Requirements" 섹션 파싱
 - 명시된 테스트 케이스와 실제 `describe`/`it` 블록 매칭
 - 기본 임계값: 80% (설정의 `specTestMappingThreshold`로 오버라이드 가능)
 - **FAIL 조건**: 매칭률이 임계값 미만
 
 ### T-4: 테스트 격리 (Warning)
-
-테스트가 외부 의존성 없이 독립 실행 가능해야 한다.
 
 **감지 패턴:**
 - 실제 HTTP 요청 (`axios`, `fetch`, `got` 직접 호출 — mock 래퍼가 아닌 경우)
@@ -124,8 +119,3 @@ Spec 10절의 테스트 요구사항 대비 실제 테스트 매칭률.
 | T-3 | O | 누락 테스트 케이스 스켈레톤 생성 |
 | T-4 | O | mock 전환, cleanup 코드 추가 |
 | T-5 | X | 커버리지 향상은 Lead 판단 필요 |
-
-## trine-test-quality.md 룰 참조
-
-이 에이전트는 `~/.claude/trine/rules/trine-test-quality.md`에 정의된 규칙을 검증한다.
-룰 파일이 변경되면 이 에이전트의 검증 기준도 동기화해야 한다.
