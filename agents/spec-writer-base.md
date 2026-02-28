@@ -78,6 +78,14 @@ permissionMode: plan
 - 비기능 요구사항(NFR)에 측정 기준 포함 (예: "응답 시간 200ms 이내")
 - 각 NFR에 검증 방법 명시 (예: "k6 부하 테스트로 측정")
 
+#### 모바일 UI/UX 검증 (프론트엔드 포함 시)
+- 모바일 네비게이션 패턴이 결정되었는가 (Bottom Nav / Hamburger / Tab Bar 등)
+- 터치 인터랙션이 정의되었는가 (제스처 목록, 터치 타겟 크기 48x48dp 이상)
+- 모바일 breakpoint별 레이아웃 변화가 명시되었는가 (섹션 9.6)
+- 모바일 폼이 있으면 키보드 타입(`inputMode`)이 지정되었는가
+- 제스처에 버튼 대체 수단이 있는가 (WCAG 2.5.1)
+- Safe Area 대응이 명시되었는가 (iOS notch/Home Indicator, Android system bars)
+
 ### 4. 작성 원칙
 
 1. **명확성**: 모호한 표현 금지, 구체적인 기술 요구사항 명시

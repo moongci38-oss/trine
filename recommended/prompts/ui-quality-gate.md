@@ -46,12 +46,15 @@ Check 3.6 Subagent는 아래 순서로 도구를 로드한다:
 
 ### 4. 반응형 시각 검증 (Playwright MCP 가용 시)
 
-| 뷰포트 | 사이즈 |
-|--------|--------|
-| Mobile | 375x812 |
-| Tablet | 768x1024 |
-| Desktop | 1440x900 |
-| Dark Mode | Desktop + prefers-color-scheme: dark |
+| 뷰포트 | 사이즈 | 비고 |
+|--------|--------|------|
+| Mobile (iPhone SE) | 375x812 | 기본 모바일 세로 |
+| Mobile (iPhone 14) | 390x844 | 최신 iOS 세로 |
+| Mobile (Android) | 360x780 | 일반 Android 세로 |
+| Mobile Landscape | 812x375 | 모바일 가로 모드 |
+| Tablet | 768x1024 | iPad 세로 |
+| Desktop | 1440x900 | 표준 데스크톱 |
+| Dark Mode | Desktop + prefers-color-scheme: dark | 다크 모드 |
 
 ### 반응형 시각 검증 절차
 
@@ -62,6 +65,21 @@ Check 3.6 Subagent는 아래 순서로 도구를 로드한다:
    c. browser_take_screenshot() → 스크린샷 저장
 3. Dark Mode: browser_evaluate로 prefers-color-scheme 설정 후 반복
 4. 스크린샷 저장: `docs/walkthroughs/screenshots/{spec-name}/` 하위
+
+### 5. 터치 타겟 크기 검증 (정적 분석)
+
+> Playwright snapshot 또는 소스 코드 정적 분석으로 터치 타겟 크기를 검증한다.
+
+| 검사 항목 | FAIL 조건 | WARN 조건 |
+|-----------|----------|----------|
+| 버튼/링크 크기 | width 또는 height < 44px | width 또는 height < 48px |
+| 인터랙티브 요소 간격 | 인접 요소 간 < 4px | 인접 요소 간 < 8px |
+| 아이콘 전용 버튼 | 터치 영역 < 44x44px (padding 포함) | 터치 영역 < 48x48px |
+
+**검증 방법**:
+- browser_snapshot()에서 인터랙티브 요소의 bounding box 추출
+- CSS computed style에서 min-width, min-height, padding 확인
+- FAIL 발견 시 `touchTarget` 필드에 이슈 목록 기록
 
 ### 이미지 품질 FAIL 시 자동 수정 (NanoBanana 가용 시)
 
@@ -85,7 +103,8 @@ Check 3.6 Subagent는 아래 순서로 도구를 로드한다:
   "imageQuality": { "status": "PASS|FAIL", "issues": [] },
   "lighthouse": { "lcp": 0, "cls": 0, "a11yScore": 0 },
   "wcag": { "critical": 0, "serious": 0, "moderate": 0 },
-  "responsive": { "mobile": "PASS|FAIL", "tablet": "PASS|FAIL", "desktop": "PASS|FAIL", "dark": "PASS|FAIL" },
+  "responsive": { "mobile": "PASS|FAIL", "mobileLandscape": "PASS|FAIL", "tablet": "PASS|FAIL", "desktop": "PASS|FAIL", "dark": "PASS|FAIL" },
+  "touchTarget": { "status": "PASS|WARN|FAIL", "issues": [] },
   "nanobananaUsed": false,
   "visualQA": { "score": null, "notes": "" },
   "summary": "",
