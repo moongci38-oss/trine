@@ -14,14 +14,19 @@ model: haiku
 3. 세션 완료 시 자동 회고 + Changelog 생성
 4. Mermaid Gantt 차트 자동 갱신
 
+## 경로 해석
+
+SIGIL 프로젝트: `sigil-workspace.json`의 `folderMap`으로 경로를 해석한다.
+비-SIGIL 프로젝트: Glob으로 `todo.md`, `development-plan.md`를 탐색한다.
+
 ## 대상 문서
 
 | 파일 | 용도 |
 |------|------|
-| `progress.md` | 체크리스트 기반 진행 상태 + 세션 이력 + Merged PR + Gantt |
+| `todo.md` | 체크리스트 기반 진행 상태 + 세션 이력 + Merged PR + Gantt |
 | `development-plan.md` | 세션 목록 + 상세 + 메트릭스 + Changelog + 회고 |
 
-> 문서 위치는 프로젝트마다 다를 수 있다. `docs/planning/active/`, `docs/Planning/` 등. 먼저 Glob으로 탐색한다.
+> 문서 위치는 프로젝트마다 다를 수 있다. SIGIL 프로젝트는 `docs/planning/active/sigil/` (symlink), 비-SIGIL은 `docs/planning/active/` 등. 먼저 Glob으로 탐색한다.
 
 ---
 
@@ -34,12 +39,12 @@ model: haiku
 - 세션 상세 블록 추가 (목표, 브랜치, Spec, 규모, 시작일)
 - Phase 테이블 초기화 (5개 Phase 모두 ⬜)
 
-**progress.md:**
+**todo.md:**
 - Trine 세션 이력에 새 세션 Phase 테이블 추가
 
 ### 2. Phase 전환 (`checkpoint`)
 
-**progress.md:**
+**todo.md:**
 - 해당 Phase 체크박스를 완료로 변경 (⬜ → ✅)
 - Phase 상태 이모지 업데이트
 - Trine 세션 이력 테이블의 해당 Phase 상태 갱신
@@ -53,13 +58,13 @@ model: haiku
 
 ### 3. Check 결과
 
-**progress.md:**
+**todo.md:**
 - Trine 세션 이력의 Check 컬럼 갱신 (PASS/FAIL/WARN)
 - FAIL 시 비고란에 실패 사유 기록
 
 ### 4. 세션 완료 (`complete`)
 
-**progress.md:**
+**todo.md:**
 - Merged PRs 테이블에 PR 정보 추가 (`gh pr list` 또는 전달받은 데이터)
 - 완료 상태 표시 (🔄 → ✅)
 - **Mermaid Gantt 최종 갱신** (모든 Phase `done`)
@@ -75,7 +80,7 @@ model: haiku
 
 > Lead가 `/compact` 실행 직전에 호출하는 경우에만 동작.
 
-**progress.md:**
+**todo.md:**
 - 현재까지 완료된 Task 목록을 Trine 세션 이력에 중간 기록
 - "마지막 갱신: `/compact` 직전" 비고 추가
 
@@ -190,7 +195,7 @@ git log --oneline --no-merges origin/develop..HEAD
 
 ## Mermaid Gantt 자동 갱신
 
-`progress.md` 하단에 Mermaid Gantt 블록을 자동 생성/갱신한다.
+`todo.md` 하단에 Mermaid Gantt 블록을 자동 생성/갱신한다.
 
 **생성 규칙:**
 
@@ -252,7 +257,7 @@ gantt
 ## 문서 구조 규칙
 
 > 문서별 상세 구조는 템플릿 파일을 참조한다:
-> - `~/.claude/trine/templates/progress-template.md`
+> - `~/.claude/trine/templates/todo-template.md`
 > - `~/.claude/trine/templates/development-plan-template.md`
 >
 > 이벤트 처리 시 먼저 해당 템플릿을 Read하여 현재 구조를 파악한 후 갱신한다.

@@ -80,7 +80,7 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   ├── trine-context-engineering.md ← 컨텍스트 엔지니어링
 │   ├── trine-requirements-analysis.md ← 요구사항 분석
 │   ├── trine-walkthrough.md        ← 구현 워크스루 규칙
-│   ├── trine-progress.md           ← 진행 상태 추적
+│   ├── trine-todo.md           ← 진행 상태 추적
 │   ├── trine-context-management.md ← 컨텍스트 관리
 │   ├── trine-performance.md        ← 백엔드 성능 품질 규칙 (N+1, Pagination, Rate Limiting)
 │   └── trine-module-dependency.md  ← 모듈 의존성 방향 검증
@@ -100,7 +100,7 @@ v1.4.0부터 **전역 배포 모델**을 사용한다. 대부분의 파일을 `~
 │   ├── plan-template-base.md       ← 구현 계획 템플릿
 │   ├── task-template-base.md       ← 태스크 분배 템플릿 (Wave 기반)
 │   ├── walkthrough-template-base.md ← 구현 워크스루 템플릿
-│   ├── progress-template.md        ← 진행 상태 템플릿
+│   ├── todo-template.md        ← 진행 상태 템플릿
 │   └── development-plan-template.md ← 개발 계획서 템플릿
 │
 ├── github-spec-kit/                ← → 프로젝트 .github/ + scripts/에 배포 (v1.5.0)
@@ -570,7 +570,7 @@ v1.4.0부터 `setup.mjs`와 `trine-sync`가 `~/.claude/`에 전역 배포하는 
 | `trine-context-engineering.md` | rules | 컨텍스트 엔지니어링 |
 | `trine-requirements-analysis.md` | rules | 요구사항 분석 + 도메인 완결성 체크리스트 (CRUD/권한/에러/FE상태/테스트/입력검증) |
 | `trine-walkthrough.md` | rules | 구현 워크스루 규칙 |
-| `trine-progress.md` | rules | 진행 상태 추적 (AI 에이전트 트리거 + 수동 매핑 가이드 + 외부 PM 연동) |
+| `trine-todo.md` | rules | 진행 상태 추적 (AI 에이전트 트리거 + 수동 매핑 가이드 + 외부 PM 연동) |
 | `trine-context-management.md` | rules | 컨텍스트 관리 |
 
 ### 8.2 전역 Agents (3개)

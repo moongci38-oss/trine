@@ -28,20 +28,84 @@ PR 생성 전(Phase 4 직전) 또는 릴리즈 전 최종 점검에 사용된다
 
 ### 3. UI/품질 (Check 3.6) — Frontend 변경 시
 
+**기존 5카테고리:**
+
 - [ ] 반응형 디자인 확인 (mobile/tablet/desktop)
 - [ ] 접근성 (WCAG 2.1 AA) 기준 충족
 - [ ] Lighthouse 성능 점수 ≥ 90
 - [ ] 이미지 최적화 (WebP/AVIF, lazy loading)
 - [ ] 크로스 브라우저 호환성
 
-### 4. 코드 리뷰 (Check 3.7)
+**Typography (신규):**
 
-- [ ] SOLID 원칙 준수
-- [ ] 코드 중복 없음 (DRY)
-- [ ] 함수 복잡도 ≤ 10 (Cyclomatic)
-- [ ] 네이밍 컨벤션 일관성
-- [ ] 에러 핸들링 적절
-- [ ] 테스트 코드 품질
+- [ ] `font-display: swap` 적용 (FOUT 방지)
+- [ ] 본문 행간(line-height) ≥ 1.5
+- [ ] 본문 폰트 크기 ≥ 16px
+- [ ] 텍스트 대비 비율 ≥ 4.5:1 (WCAG AA)
+- [ ] 숫자 데이터에 `font-variant-numeric: tabular-nums` 적용
+
+**Animation (신규):**
+
+- [ ] `prefers-reduced-motion` 미디어 쿼리 대응
+- [ ] 애니메이션은 compositor 속성만 사용 (transform, opacity)
+- [ ] 애니메이션 60fps 유지 (layout thrashing 없음)
+- [ ] `will-change` 속성 남용 금지 (필요한 요소에만)
+- [ ] 전환 시간 ≤ 300ms (사용자 인지 한계)
+
+**Forms (신규):**
+
+- [ ] 모든 input에 연결된 `<label>` 존재
+- [ ] `autocomplete` 속성 적절히 설정
+- [ ] 에러 메시지에 `role="alert"` 또는 `aria-live` 적용
+- [ ] Submit 버튼 중복 클릭 방지 (disabled + loading)
+- [ ] 필수 필드에 `aria-required="true"` 표시
+
+**Focus States (신규):**
+
+- [ ] `:focus-visible` 스타일 정의 (outline 제거 금지)
+- [ ] 논리적 탭 순서 (`tabindex` 남용 금지)
+- [ ] Skip-to-content 링크 존재
+- [ ] 모달/드롭다운에 포커스 트랩 구현
+- [ ] 포커스 이동 후 스크롤 위치 적절
+
+**Dark Mode (신규):**
+
+- [ ] `color-scheme: light dark` 메타 설정
+- [ ] CSS 변수 기반 테마 토큰 사용
+- [ ] `prefers-color-scheme` 미디어 쿼리 대응
+- [ ] 다크 모드에서 이미지 밝기/대비 조정
+- [ ] 수동 테마 전환 시 시스템 설정 오버라이드 가능
+
+**Navigation (신규):**
+
+- [ ] URL과 UI 상태 동기화 (searchParams/hash 반영)
+- [ ] 뒤로가기 시 이전 상태 복원
+- [ ] 페이지 전환 시 스켈레톤 UI 표시
+- [ ] Deep-linking 지원 (공유 URL로 동일 뷰 재현)
+- [ ] 현재 위치 표시 (active nav, breadcrumb)
+
+### 4. 코드 리뷰 (Check 3.7) — Hook + Agent 하이브리드
+
+**Layer 1 — Git Hook (정적, 자동 실행):**
+
+- [ ] tsc --noEmit 통과 (pre-commit: lint-staged)
+- [ ] ESLint 통과 (pre-commit: lint-staged)
+- [ ] Prettier 통과 (pre-commit: lint-staged)
+- [ ] 하드코딩 시크릿 없음 (pre-push: check-secrets.sh)
+- [ ] dev/prerelease 의존성 없음 (pre-push: check-deps.sh)
+- [ ] dead i18n 키 없음 (pre-push: check-i18n.sh)
+- [ ] JSON 구조 유효 (pre-push: check-json-integrity.sh)
+
+**Layer 2 — Agent (시맨틱, Check 3.7 실행 시):**
+
+- [ ] 불필요한 API 재호출 없음 (api-unnecessary-call)
+- [ ] 에러 삼킴 없음 (api-error-swallow) [Critical]
+- [ ] 과도한 Context 커플링 없음 (api-state-coupling)
+- [ ] HTML 시맨틱 UX 위반 없음 (html-mailto-target, html-button-in-anchor)
+- [ ] 순환 의존성 없음 (arch-circular-dep) [Critical]
+- [ ] 레이어 침범 없음 (arch-layer-violation) [Critical]
+- [ ] 비동기 경합/cleanup 문제 없음 (logic-race-condition, logic-missing-cleanup) [Critical]
+- [ ] 중복 mutation 없음 (logic-redundant-mutation)
 
 ### 5. 보안 (Check 3.8)
 

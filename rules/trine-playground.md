@@ -1,3 +1,16 @@
+---
+title: "Playground 연동 규칙"
+id: trine-playground
+impact: LOW
+scope: [trine]
+tags: [playground, code-map, concept-map, design-playground, visualization]
+requires: [trine-workflow]
+section: trine-tools
+audience: dev
+impactDescription: "선택적 보조 도구 — 미사용 시 텍스트 기반 방식으로 동일 결과 달성 가능"
+enforcement: flexible
+---
+
 # Trine Playground 연동 규칙
 
 > Anthropic 공식 `playground` 플러그인 중 3개 템플릿을 Trine 파이프라인에 선택적 연동.
@@ -7,7 +20,7 @@
 
 | Phase | 템플릿 | 트리거 조건 | 기존 도구와의 관계 |
 |-------|--------|-----------|-----------------|
-| **Phase 1** | `code-map` | Standard/Multi-Spec + 새 코드베이스 분석 시 | 기존에 없던 아키텍처 시각화 추가 |
+| **Phase 1** | `code-map` | Standard + 새 코드베이스 분석 시 | 기존에 없던 아키텍처 시각화 추가 |
 | **Phase 1.5** | `concept-map` | 요구사항 의존성이 복잡할 때 (4+ 질문 발생) | Sequential Thinking 보완 (선형→공간) |
 | **Phase 2** | `design-playground` | UI/프론트엔드 Spec에 디자인 결정 포함 시 | frontend-design 스킬 **전에** 탐색 단계 추가 |
 

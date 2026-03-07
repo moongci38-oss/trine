@@ -1,7 +1,20 @@
+---
+title: "백엔드 성능 규칙"
+id: trine-performance
+impact: HIGH
+scope: [trine]
+tags: [performance, nestjs, typeorm, backend, n-plus-one, pagination, rate-limiting]
+requires: []
+section: trine-quality
+audience: dev
+impactDescription: "미준수 시 N+1 쿼리로 API 응답 10-100x 지연, 무제한 목록 반환으로 OOM, Rate Limiting 부재로 DDoS 취약"
+enforcement: rigid
+---
+
 # Trine Performance Rules
 
 > 백엔드 API 성능 품질을 개발 단계에서 보장하기 위한 규칙.
-> Check 3.7 (code-reviewer) 및 향후 performance-checker 에이전트가 이 규칙을 검증한다.
+> Check 3.7 (code-reviewer) 및 performance-checker 에이전트가 이 규칙을 검증한다.
 
 ## N+1 쿼리 금지
 

@@ -1,3 +1,16 @@
+---
+title: "컨텍스트 윈도우 관리 규칙"
+id: trine-context-management
+impact: MEDIUM
+scope: [trine]
+tags: [context, compact, token, session, mcp]
+requires: [trine-context-engineering]
+section: trine-context
+audience: dev
+impactDescription: "미준수 시 컨텍스트 70% 초과로 응답 품질 비선형 저하, 자동 수정 루프에서 토큰 고갈, MCP 도구 정의로 가용 토큰 잠식"
+enforcement: flexible
+---
+
 # Context Window Management Rules
 
 ## 핵심 원칙

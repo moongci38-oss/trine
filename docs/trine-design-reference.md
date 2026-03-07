@@ -194,7 +194,7 @@ DB MCP, 캐시 MCP, 테스트 도구, 언어 전문 Skill, 빌드 도구, 공식
 
 | 파일 | 용도 | 갱신 시점 | 템플릿 |
 |------|------|----------|--------|
-| `docs/Planning/progress.md` | 체크리스트 기반 진행 상태 + Merged PR 이력 | Phase 완료, PR merge 시 | `progress-template.md` |
+| `docs/Planning/todo.md` | 체크리스트 기반 진행 상태 + Merged PR 이력 | Phase 완료, PR merge 시 | `todo-template.md` |
 | `docs/Planning/development-plan.md` | 전체 세션 목록 + 각 세션 상세 단계 + 스케줄 | 세션 추가/완료 시 | `development-plan-template.md` |
 
 자동화 메커니즘:

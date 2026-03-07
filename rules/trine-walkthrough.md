@@ -1,3 +1,16 @@
+---
+title: "Walkthrough 작성 규칙"
+id: trine-walkthrough
+impact: MEDIUM
+scope: [trine]
+tags: [walkthrough, documentation, check-3.5, traceability, pr]
+requires: [trine-workflow]
+section: trine-process
+audience: dev
+impactDescription: "미준수 시 Check 3.5 입력 부재로 트레이서빌리티 검증 불가, Spec 대비 구현 누락 미발견, PR 리뷰어에게 변경 맥락 전달 실패"
+enforcement: flexible
+---
+
 # Walkthrough Requirement
 
 ## 개요

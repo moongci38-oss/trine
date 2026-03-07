@@ -1,3 +1,16 @@
+---
+title: "요구사항 분석 규칙"
+id: trine-requirements-analysis
+impact: HIGH
+scope: [trine]
+tags: [requirements, qa, traceability, phase-1.5, domain-completeness]
+requires: [trine-workflow]
+section: trine-core
+audience: dev
+impactDescription: "미준수 시 모호한 요구사항으로 구현 방향 오류, 도메인 완결성 누락으로 CRUD/권한/에러 시나리오 빠짐, 6+질문 기획서 반려 미수행"
+enforcement: rigid
+---
+
 # Requirements Analysis Rules (Phase 1.5)
 
 ## 핵심 원칙
@@ -61,16 +74,14 @@ Q&A는 "모호함 제거"만 수행하므로, **구현 누락 예방**을 위해
 2. 미충족 항목이 있으면 **추가 질문을 생성**하거나, 의도적 미지원을 명시하도록 요청한다
 3. 점검 결과는 매트릭스에 `completenessCheck` 필드로 기록한다
 4. 6개 영역 모두 충족 시 매트릭스 생성으로 진행한다
-5. Hotfix/Small 분류는 해당 영역만 점검 (전체 6개 불필요)
+5. Hotfix 분류는 해당 영역만 점검 (전체 6개 불필요)
 
 ### 분류별 적용 범위
 
 | 분류 | 적용 영역 |
 |------|---------|
 | **Hotfix** | 해당 기능 영역의 에러 시나리오(#3)만 점검 |
-| **Small** | CRUD(#1) + 에러(#3) + 입력 검증(#6) |
-| **Standard** | 6개 영역 전체 |
-| **Multi-Spec** | 6개 영역 전체 + 도메인 간 교차 영향 분석 |
+| **Standard** | 6개 영역 전체 (Agent Teams로 병렬 처리 가능) |
 
 ---
 

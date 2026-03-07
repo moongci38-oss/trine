@@ -37,7 +37,7 @@ GodBlade과 Portfolio 두 개발 프로젝트가 동일한 Trine 워크플로우
 │   │   ├── trine-context-engineering.md
 │   │   ├── trine-requirements-analysis.md
 │   │   ├── trine-walkthrough.md
-│   │   ├── trine-progress.md
+│   │   ├── trine-todo.md
 │   │   └── trine-context-management.md
 │   ├── prompts/
 │   │   └── trine-pipeline.md          통합 워크플로우 프롬프트
@@ -48,7 +48,7 @@ GodBlade과 Portfolio 두 개발 프로젝트가 동일한 Trine 워크플로우
 │   │   ├── plan-template-base.md
 │   │   ├── task-template-base.md
 │   │   ├── walkthrough-template-base.md
-│   │   ├── progress-template.md       PM: 진행 상태
+│   │   ├── todo-template.md       PM: 진행 상태
 │   │   └── development-plan-template.md PM: 개발계획서
 │   ├── agents/                        베이스 에이전트 3개
 │   │   ├── spec-writer-base.md
@@ -87,7 +87,7 @@ GodBlade과 Portfolio 두 개발 프로젝트가 동일한 Trine 워크플로우
 | `trine-context-engineering.md` | Portfolio | 예시 파일 경로를 `{project-specific}` 플레이스홀더로 |
 | `trine-requirements-analysis.md` | Portfolio | 비표준 기획서 Fallback 포함 |
 | `trine-walkthrough.md` | Portfolio | 브랜치별 적용 기준을 일반화 |
-| `trine-progress.md` | 양쪽 병합 | GodBlade의 checkpoint 연동 + Portfolio의 매핑 파일 |
+| `trine-todo.md` | 양쪽 병합 | GodBlade의 checkpoint 연동 + Portfolio의 매핑 파일 |
 | `trine-context-management.md` | Portfolio | MCP 토큰 인지, Tool Search 포함 (상위 호환) |
 
 ### trine-pipeline.md 통합
@@ -114,7 +114,7 @@ Portfolio 기준 + GodBlade 차이 병합:
 
 - **spec-writer-base**: 핵심 로직만 (constitution 읽기 → Spec 참조 → 작성 → 검증). 기술 스택 → `{constitution}`, `{template}` 플레이스홀더
 - **code-reviewer-base**: 범용 코드 리뷰 로직
-- **trine-pm-updater**: Phase 전환 시 progress.md + development-plan.md 자동 갱신
+- **trine-pm-updater**: Phase 전환 시 todo.md + development-plan.md 자동 갱신
 
 ### Skills — 신규 생성 2개
 

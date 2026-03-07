@@ -30,7 +30,7 @@ Trine 동기화 상태
   portfolio: ✅ 동기화됨 (7/7 rules, 1/1 prompts, ...)
   godblade:  ⚠️ 2개 불일치
     - trine-workflow.md (원본 newer)
-    - trine-progress.md (원본 newer)
+    - trine-todo.md (원본 newer)
   → 동기화: /trine-sync --target godblade
 
 세션 상태

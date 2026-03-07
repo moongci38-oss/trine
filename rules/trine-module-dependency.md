@@ -1,3 +1,16 @@
+---
+title: "모듈 의존성 규칙"
+id: trine-module-dependency
+impact: MEDIUM
+scope: [trine]
+tags: [module, dependency, nestjs, circular, layer, barrel-export]
+requires: []
+section: trine-quality
+audience: dev
+impactDescription: "미준수 시 순환 의존성으로 런타임 에러, 역방향 의존으로 아키텍처 붕괴, forwardRef 남용으로 유지보수성 저하"
+enforcement: flexible
+---
+
 # Trine Module Dependency Rules
 
 > 모듈 간 의존성 방향을 검증하여 순환 의존성과 잘못된 의존 방향을 사전 차단한다.

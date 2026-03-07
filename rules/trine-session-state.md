@@ -1,3 +1,16 @@
+---
+title: "세션 상태 관리 규칙"
+id: trine-session-state
+impact: HIGH
+scope: [trine]
+tags: [session, checkpoint, autofix, multi-session]
+requires: [trine-workflow]
+section: trine-core
+audience: dev
+impactDescription: "미준수 시 세션 재개 실패, autoFix 카운터 리셋으로 무한 루프, 체크포인트 누락으로 작업 유실"
+enforcement: rigid
+---
+
 # Trine Session State Rules
 
 > 전역 규칙. 프로젝트별 Phase 정의는 각 프로젝트의 `.claude/rules/`에서 override한다.
@@ -19,17 +32,17 @@
 
 1. `.claude/state/sessions/` 디렉토리에서 **신규/재개** 판단
 2. 존재 → 마지막 체크포인트에서 재개
-3. 미존재 → `node ~/.claude/scripts/session-state.mjs init --name <name>` 실행
+3. 미존재 → `node ~/.claude/trine/scripts/session-state.mjs init --name <name>` 실행
 
 ## 스크립트 호출
 
 ```bash
-node ~/.claude/scripts/session-state.mjs init --name <name>     # 세션 생성
-node ~/.claude/scripts/session-state.mjs list                    # 세션 목록
-node ~/.claude/scripts/session-state.mjs rename <old> <new>      # 이름 변경
-node ~/.claude/scripts/session-state.mjs clean                   # 완료 세션 정리
-node ~/.claude/scripts/session-state.mjs status --session <name> # 상태 확인
-node ~/.claude/scripts/session-state.mjs checkpoint <phase> --session <name>
+node ~/.claude/trine/scripts/session-state.mjs init --name <name>     # 세션 생성
+node ~/.claude/trine/scripts/session-state.mjs list                    # 세션 목록
+node ~/.claude/trine/scripts/session-state.mjs rename <old> <new>      # 이름 변경
+node ~/.claude/trine/scripts/session-state.mjs clean                   # 완료 세션 정리
+node ~/.claude/trine/scripts/session-state.mjs status --session <name> # 상태 확인
+node ~/.claude/trine/scripts/session-state.mjs checkpoint <phase> --session <name>
 ```
 
 ## --session 자동 선택
@@ -51,33 +64,21 @@ Phase 전환 시 반드시 체크포인트를 생성한다.
 | Phase 4 완료 | `session_complete` |
 
 각 체크포인트에서:
-- `node ~/.claude/scripts/session-state.mjs checkpoint --phase {state}` 실행
+- `node ~/.claude/trine/scripts/session-state.mjs checkpoint --phase {state}` 실행
 - WIP git commit 생성 (중간 상태 영속화)
 
 ## 작업 규모 분류 (Phase 1 완료 시 결정)
 
 | 분류 | 기준 | Phase 스킵 |
 |------|------|-----------|
-| **Hotfix** | 긴급 장애, main 기반 | Phase 1.5/2 스킵 가능 |
-| **Small** | 단일 파일, 설정 변경 | Phase 1.5 스킵 가능 |
-| **Standard** | 일반 기능, 단일 도메인 | 전체 Phase 수행 |
-| **Multi-Spec** | 멀티 도메인, 대규모 | 전체 Phase + Plan/Task 필수 |
+| **Hotfix** | 긴급 장애, main 기반, 단일 파일 수정 | Phase 1.5/2 스킵, Check 3만 |
+| **Standard** | 일반 기능 구현, 리팩토링, 테스트 추가 | 전체 Phase 수행 |
 
-## autoFix WAL (Write-Ahead Logging)
+## autoFix 규칙
 
-자동 수정 시도 전에 먼저 카운터를 기록하고, 그 다음 수정을 실행한다.
-
-## autoFix 카운터 규칙
-
-- 자동 수정 **시도 시작 전** 즉시 카운터 증가 (Write-Ahead)
-- 세션 재개 시 기존 카운터 **이어서 사용** (리셋 금지)
-- 동일 Check 3회 연속 실패 → 자동 수정 중단 + [STOP] Human
-
-## 3-Cycle 순환 제한
-
-- Check 3 ↔ 3.5 순환 최대 **3회**
-- 초과 시: 자동 수정 전면 중단 + [STOP] Human 승인 필수
-- 조기 탈출: 2회차에서 동일 패턴 반복 시 즉시 중단
+- Check 실패 시 **1회 자동 수정** → 재실행
+- 1회 실패 → **[STOP]** Human 에스컬레이션
+- autoFix 카운터는 대화 컨텍스트에서 관리 (별도 파일 불필요)
 
 ## 세션 재개 규칙
 
