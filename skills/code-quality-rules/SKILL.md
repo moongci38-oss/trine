@@ -1,12 +1,13 @@
 ---
 name: code-quality-rules
 description: "시맨틱 코드 품질 룰 10개. Hook(정적)이 잡지 못하는 로직/아키텍처/UX 이슈를 Agent가 검출."
+user-invocable: false
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   author: Trine System
   category: development
   domain: code-quality
-  updated: 2026-03-05
+  updated: 2026-03-09
 enforcement: rigid
 ---
 

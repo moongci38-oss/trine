@@ -1,3 +1,10 @@
+---
+name: inspection-checklist
+description: "Trine 파이프라인의 모든 Check를 통합한 최종 검수 체크리스트. PR 생성 전 최종 점검."
+context: fork
+allowed-tools: "Read, Grep, Glob, Bash"
+---
+
 # Inspection Checklist
 
 Trine 파이프라인의 모든 Check를 통합한 최종 검수 체크리스트를 생성하는 스킬.
