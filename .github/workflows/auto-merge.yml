@@ -5,6 +5,10 @@ on:
     branches:
       - develop
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   merge-to-staging:
     runs-on: ubuntu-latest
@@ -20,11 +24,38 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create staging branch if not exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin staging; then
+            git checkout -b staging origin/develop
+            git push origin staging
+            echo "BRANCH_CREATED=true" >> $GITHUB_ENV
+          fi
+
       - name: Merge develop into staging
+        if: env.BRANCH_CREATED != 'true'
         run: |
           git checkout staging
-          git merge origin/develop --no-edit
-          git push origin staging
+          if git merge origin/develop --no-edit; then
+            git push origin staging
+          else
+            git merge --abort
+            echo "MERGE_CONFLICT=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create PR on conflict
+        if: env.MERGE_CONFLICT == 'true'
+        run: |
+          BRANCH_NAME="auto-merge/develop-to-staging-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH_NAME" origin/develop
+          git push origin "$BRANCH_NAME"
+          gh pr create \
+            --base staging \
+            --head "$BRANCH_NAME" \
+            --title "Auto-merge: develop → staging (conflict)" \
+            --body "develop → staging 자동 머지 중 충돌이 발생했습니다. 수동으로 충돌을 해결해 주세요."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   merge-to-main:
     runs-on: ubuntu-latest
@@ -40,8 +71,35 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create main branch if not exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin main; then
+            git checkout -b main origin/develop
+            git push origin main
+            echo "BRANCH_CREATED=true" >> $GITHUB_ENV
+          fi
+
       - name: Merge develop into main
+        if: env.BRANCH_CREATED != 'true'
         run: |
           git checkout main
-          git merge origin/develop --no-edit
-          git push origin main
+          if git merge origin/develop --no-edit; then
+            git push origin main
+          else
+            git merge --abort
+            echo "MERGE_CONFLICT=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create PR on conflict
+        if: env.MERGE_CONFLICT == 'true'
+        run: |
+          BRANCH_NAME="auto-merge/develop-to-main-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH_NAME" origin/develop
+          git push origin "$BRANCH_NAME"
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "Auto-merge: develop → main (conflict)" \
+            --body "develop → main 자동 머지 중 충돌이 발생했습니다. 수동으로 충돌을 해결해 주세요."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
